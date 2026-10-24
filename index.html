@@ -4,8 +4,77 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Providing Light</title>
+  <meta name="description" content="A safe, anonymous space for youth ages 11–17 to connect, chat, and find upcoming events.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Hello, world!</h1>
+  <header class="site-header">
+    <a href="#top" class="logo"><span class="logo-sun" aria-hidden="true"></span>Providing Light</a>
+    <nav>
+      <a href="#events">Events</a>
+      <a href="#chat">Chat</a>
+      <a href="#rules">Safety</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <h1>A safe place to talk, share, and belong.</h1>
+      <p>For ages 11–17. Chat anonymously with other youth or privately with a program leader. No real names, no pressure.</p>
+      <div class="hero-buttons">
+        <a href="#chat" class="btn btn-primary">Start chatting</a>
+        <a href="#events" class="btn btn-ghost">See events</a>
+      </div>
+      <p class="hero-note">🛡️ Every chat is watched over by a trusted program leader.</p>
+    </section>
+
+    <section id="events" class="section">
+      <h2>Upcoming events</h2>
+      <p class="section-intro">Come hang out in person. Everyone's welcome.</p>
+      <div id="event-list" class="event-grid"></div>
+    </section>
+
+    <section id="chat" class="section">
+      <h2>Chat</h2>
+      <p class="section-intro">You're chatting as <strong id="my-name"></strong>
+        <button id="new-name" class="link-btn" type="button">(get a new name)</button>
+      </p>
+
+      <div class="chat-box">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab" aria-selected="true" data-room="group">💬 Group chat</button>
+          <button class="tab" role="tab" aria-selected="false" data-room="leader">🔒 Talk to a leader</button>
+        </div>
+        <p id="room-desc" class="room-desc"></p>
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form">
+          <label for="chat-input" class="visually-hidden">Type a message</label>
+          <input id="chat-input" type="text" maxlength="300" placeholder="Type a kind message…" autocomplete="off">
+          <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+        <p id="chat-warning" class="chat-warning" role="alert"></p>
+      </div>
+      <p class="preview-note">Preview mode: messages are only saved on this device for now.</p>
+    </section>
+
+    <section id="rules" class="section">
+      <h2>Staying safe</h2>
+      <ul class="rules">
+        <li><span>🙈</span><div><strong>Stay anonymous.</strong> Never share your real name, school, phone number, address, or social media. The chat blocks phone numbers and emails automatically.</div></li>
+        <li><span>💛</span><div><strong>Be kind.</strong> Treat everyone the way you want to be treated. Mean or unsafe messages are removed.</div></li>
+        <li><span>👀</span><div><strong>A leader is always watching.</strong> A trusted adult from the program reads the chats to keep everyone safe.</div></li>
+        <li><span>🚩</span><div><strong>Report anything wrong.</strong> Tap the 🚩 on any message that makes you uncomfortable.</div></li>
+        <li><span>🆘</span><div><strong>In danger or need help now?</strong> Call or text <strong>988</strong> (Suicide &amp; Crisis Lifeline), or call <strong>911</strong> in an emergency.</div></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Providing Light</p>
+  </footer>
+
+  <script src="script.js"></script>
 </body>
 </html>
