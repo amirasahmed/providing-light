@@ -10,6 +10,34 @@
   --border: #ece6dc;
   --danger: #c0392b;
   --radius: 16px;
+  --header-bg: rgba(255, 250, 242, 0.92);
+  --subtle: #fdfbf7;
+  --bubble: #f4f2f7;
+  --leader-bg: #fff4d9;
+  --leader-border: #ffe2a3;
+  --banner-border: #ddd3ff;
+  color-scheme: light dark;
+}
+
+/* Dark mode: switches automatically when the device is set to dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17151c;
+    --card: #221f29;
+    --text: #f1eef6;
+    --muted: #a9a2b5;
+    --primary: #8f78ff;
+    --primary-dark: #7a61f5;
+    --soft: #2c2640;
+    --border: #35303f;
+    --danger: #ff7b6b;
+    --header-bg: rgba(23, 21, 28, 0.92);
+    --subtle: #1d1a23;
+    --bubble: #2d2936;
+    --leader-bg: #3a2f17;
+    --leader-border: #5c4a20;
+    --banner-border: #3d3463;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -31,7 +59,7 @@ body {
   text-align: center;
   font-size: 0.9rem;
   padding: 8px 16px;
-  border-bottom: 1px solid #ddd3ff;
+  border-bottom: 1px solid var(--banner-border);
 }
 
 /* Header */
@@ -44,7 +72,7 @@ body {
   align-items: center;
   gap: 16px;
   padding: 14px 24px;
-  background: rgba(255, 250, 242, 0.92);
+  background: var(--header-bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
@@ -180,7 +208,7 @@ nav a:hover { color: var(--primary); }
   padding: 10px 18px;
   font-size: 0.9rem;
   color: var(--muted);
-  background: #fdfbf7;
+  background: var(--subtle);
   border-bottom: 1px solid var(--border);
 }
 .messages {
@@ -195,11 +223,11 @@ nav a:hover { color: var(--primary); }
   max-width: 80%;
   padding: 10px 14px;
   border-radius: 14px;
-  background: #f4f2f7;
+  background: var(--bubble);
   align-self: flex-start;
 }
 .msg.mine { background: var(--primary); color: #fff; align-self: flex-end; }
-.msg.leader { background: #fff4d9; border: 1px solid #ffe2a3; }
+.msg.leader { background: var(--leader-bg); border: 1px solid var(--leader-border); }
 .msg-meta {
   display: flex;
   justify-content: space-between;
@@ -230,6 +258,8 @@ nav a:hover { color: var(--primary); }
   border: 2px solid var(--border);
   border-radius: 999px;
   font: inherit;
+  background: var(--bg);
+  color: var(--text);
 }
 .chat-form input:focus { outline: none; border-color: var(--primary); }
 .chat-warning {
