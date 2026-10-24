@@ -24,6 +24,16 @@ body {
   line-height: 1.6;
 }
 
+/* Demo banner */
+.demo-banner {
+  background: var(--soft);
+  color: var(--primary-dark);
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 8px 16px;
+  border-bottom: 1px solid #ddd3ff;
+}
+
 /* Header */
 .site-header {
   position: sticky;
