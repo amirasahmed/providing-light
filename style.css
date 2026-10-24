@@ -293,6 +293,48 @@ nav a:hover { color: var(--primary); }
 .chat-warning:not(:empty) { padding-bottom: 14px; }
 .preview-note { font-size: 0.85rem; color: var(--muted); text-align: center; }
 
+/* Leader view (demo) */
+.leader-view {
+  margin-top: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.leader-view summary { cursor: pointer; font-weight: 700; }
+.leader-view .section-intro { margin: 12px 0; font-size: 0.95rem; }
+.leader-log { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 10px; }
+.leader-log li {
+  background: var(--subtle);
+  border-left: 4px solid var(--sun);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.leader-log li.urgent { border-left-color: var(--danger); }
+.leader-log li.empty { border-left-color: var(--border); color: var(--muted); }
+.leader-log strong { display: block; }
+.leader-log span { font-size: 0.8rem; color: var(--muted); }
+.leader-log p { margin: 4px 0 0; overflow-wrap: anywhere; }
+
+/* Pop-up */
+.popup {
+  max-width: 400px;
+  width: calc(100% - 32px);
+  border: none;
+  border-radius: var(--radius);
+  padding: 28px 24px 22px;
+  background: var(--card);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.popup::backdrop { background: rgba(15, 26, 44, 0.5); }
+.popup-icon { font-size: 2.6rem; line-height: 1; }
+.popup h3 { margin: 12px 0 6px; font-size: 1.3rem; }
+.popup p { margin: 0 0 20px; color: var(--muted); }
+.popup-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.chat-form input:disabled, .chat-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* Rules */
 .rules { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
 .rules li {
