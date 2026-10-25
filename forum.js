@@ -4,6 +4,9 @@ const MAX_DEPTH = 3;                          // replies can nest this many leve
 const SLIP_LIMIT = 3;                         // bad-word slips allowed in one day before a timeout
 const SLIP_WINDOW = 24 * 60 * 60 * 1000;      // one day
 const TIMEOUT_LENGTH = 10 * 60 * 1000;        // 10 minutes
+const SPAM_LIMIT = 20;                        // more posts than this in SPAM_WINDOW...
+const SPAM_WINDOW = 30 * 1000;                // ...30 seconds...
+const SPAM_PAUSE = 60 * 1000;                 // ...pauses posting for 1 minute
 const NAME_CHANGE_WAIT = 30 * 24 * 60 * 60 * 1000; // 30 days between name changes
 
 const MOD_ID = "user_00001";
@@ -237,6 +240,7 @@ const popups = {
   "personal info": { icon: "🙈", title: "Let's keep you anonymous", text: "That looked like personal info (like a phone number, email, social media, or where you live), so it wasn't shared. A leader was let know, just to help keep you safe." },
   danger: { icon: "💛", title: "You're not alone", text: "It sounds like you might be going through something really hard. A program leader has been let know and will check in with you. If you need help right now, call or text 988, any time." },
   pending: { icon: "⏳", title: "Almost there!", text: `Thanks for posting! A new member's first ${NEW_USER_POSTS} posts are checked by a moderator before they go live. After that, you can post freely.` },
+  spam: { icon: "✋", title: "No spamming please", text: "That's a lot of messages really fast. Take a breath! You can post again in a minute." },
   reported: { icon: "🚩", title: "Thanks for telling us", text: "A moderator will take a look. You helped keep the community safe." },
 };
 
@@ -281,7 +285,25 @@ function addSlip() {
   return true;
 }
 
-const timeLeft = () => (isMod() ? 0 : me().timeoutUntil - Date.now());
+const timeLeft = () => (isMod() ? 0 : Math.max(me().timeoutUntil, me().spamUntil || 0) - Date.now());
+
+// Spam limit: trying to post more than 20 times in 30 seconds pauses posting for a minute.
+function hitSpamLimit() {
+  if (isMod()) return false;
+  const acc = me();
+  const now = Date.now();
+  acc.postTimes = (acc.postTimes || []).filter(t => now - t < SPAM_WINDOW);
+  if (acc.postTimes.length < SPAM_LIMIT) {
+    acc.postTimes.push(now);
+    return false;
+  }
+  acc.postTimes = [];
+  acc.spamUntil = now + SPAM_PAUSE;
+  save();
+  updateTimeout();
+  showPopup(popups.spam);
+  return true;
+}
 
 // Runs every post through the safety steps. Gives back the cleaned text, or null if it was blocked.
 function checkPost(texts, where) {
@@ -317,7 +339,9 @@ function updateTimeout() {
   if (left > 0) {
     const min = Math.floor(left / 60000);
     const sec = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
-    banner.textContent = `⏸️ Taking a short break. You can post again in ${min}:${sec}`;
+    banner.textContent = me().timeoutUntil > Date.now()
+      ? `⏸️ Taking a short break. You can post again in ${min}:${sec}`
+      : `✋ Slowing down for a minute. You can post again in ${min}:${sec}`;
   } else {
     banner.textContent = "";
   }
@@ -925,7 +949,7 @@ document.addEventListener("submit", e => {
   const form = e.target.closest("[data-form]");
   if (!form) return;
   e.preventDefault();
-  if (timeLeft() > 0) return;
+  if (timeLeft() > 0 || hitSpamLimit()) return;
 
   const data = new FormData(form);
   const status = needsApproval() ? "pending" : "live";
