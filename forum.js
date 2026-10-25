@@ -127,9 +127,48 @@ function seedState() {
   ] };
 
   ensureEventThreads(s);
+  seedGroups(s);
   const gameNight = s.threads.find(t => t.id === "event-game-night");
   if (gameNight) gameNight.replies.push(makeReply({ body: "Can we play Uno? 🃏", authorId: dove, time: hoursAgo(3), hearts: fakeHearts(3) }));
   return s;
+}
+
+// ---------- Groups ----------
+// A private board for one in-person group. Members join with the code they get at their first meeting.
+const MAX_CODE_TRIES = 5;                 // wrong codes allowed before joining pauses
+const CODE_TRY_WINDOW = 15 * 60 * 1000;   // 15 minutes
+
+function makeCode() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no look-alikes like O/0 or I/1
+  let code = "";
+  for (let i = 0; i < 8; i++) code += i === 3 ? "-" : chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+const normalizeCode = c => c.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+function seedGroups(s) {
+  s.groups = [
+    { id: "group-saturday", name: "Saturday Circle", icon: "🌅", desc: "Our Saturday group's own space to plan, share, and keep talking between meetings.",
+      code: "SAT-4821", members: ["user_31852", "user_47019", "user_48213", "user_72640", "user_38056"] },
+    { id: "group-wednesday", name: "Wednesday Study Group", icon: "📚", desc: "Homework help and Quran review for our Wednesday group.",
+      code: "WED-1593", members: ["user_25563", "user_55108", "user_83391", "user_26774"] },
+  ];
+  s.threads.push(
+    makeThread({ board: "group-saturday", title: "Welcome to Saturday Circle! 🌅", tag: "Announcement", authorId: MOD_ID, pinned: true, time: hoursAgo(80),
+      body: "This space is just for our Saturday group. Use it to plan, share, and keep talking between meetings. Same kindness rules as everywhere else 💛" }),
+    makeThread({ board: "group-saturday", title: "Who's bringing snacks this week? 🍪", tag: "Fun", authorId: "user_47019", time: hoursAgo(6), hearts: fakeHearts(2),
+      body: "I can bring juice. Anyone else?",
+      replies: [
+        makeReply({ body: "I'll bring dates!", authorId: "user_31852", time: hoursAgo(5), hearts: fakeHearts(1) }),
+        makeReply({ body: "Cookies!! 🍪", authorId: "user_48213", time: hoursAgo(4), hearts: fakeHearts(3) }),
+      ] }),
+    makeThread({ board: "group-wednesday", title: "Welcome to the Wednesday Study Group 📚", tag: "Announcement", authorId: MOD_ID, pinned: true, time: hoursAgo(80),
+      body: "Post homework questions, share Quran review tips, and remind each other what we're covering next week." }),
+    makeThread({ board: "group-wednesday", title: "Which surahs are we reviewing next week?", authorId: "user_55108", time: hoursAgo(10),
+      body: "I missed the end of class 😅",
+      replies: [makeReply({ body: "Surah Al-Asr and Al-Kawthar! 📖", authorId: MOD_ID, time: hoursAgo(9), hearts: fakeHearts(2) })] }),
+  );
 }
 
 // Every event in events.js gets its own discussion thread.
@@ -152,6 +191,7 @@ function loadState() {
   } catch {}
   if (!s || s.version !== 2) s = seedState();
   ensureEventThreads(s);
+  if (!s.groups) seedGroups(s);
   ensureMyAccount(s);
   for (const acc of Object.values(s.accounts)) acc.avatar ||= avatarKeys[Math.floor(Math.random() * avatarKeys.length)];
   return s;
@@ -318,6 +358,59 @@ document.getElementById("name-ok").addEventListener("click", e => {
   render();
 });
 
+// ---------- Joining a group ----------
+function openJoinDialog() {
+  document.getElementById("join-code").value = "";
+  document.getElementById("join-error").textContent = "";
+  document.getElementById("join-dialog").showModal();
+}
+
+document.getElementById("join-cancel").addEventListener("click", e => {
+  e.preventDefault();
+  document.getElementById("join-dialog").close();
+});
+
+// Runs when "Join" is clicked or Enter is pressed in the code box.
+document.querySelector("#join-dialog form").addEventListener("submit", e => {
+  e.preventDefault();
+  const acc = myAccount();
+  const error = document.getElementById("join-error");
+  const now = Date.now();
+  acc.codeTries = (acc.codeTries || []).filter(t => now - t < CODE_TRY_WINDOW);
+
+  if (acc.codeTries.length >= MAX_CODE_TRIES) {
+    error.textContent = "Too many tries. Please wait a few minutes and try again.";
+    return;
+  }
+
+  const code = normalizeCode(document.getElementById("join-code").value);
+  if (!code) return;
+  const group = state.groups.find(g => normalizeCode(g.code) === code);
+
+  if (!group) {
+    acc.codeTries.push(now);
+    // Lots of wrong guesses could mean someone is trying to get into a group they're not in.
+    if (acc.codeTries.length === MAX_CODE_TRIES) reportToLeader("codes", `${MAX_CODE_TRIES} wrong group codes in a row.`, acc.id);
+    save();
+    error.textContent = acc.codeTries.length >= MAX_CODE_TRIES
+      ? "Too many tries. Please wait a few minutes and try again."
+      : "That code didn't work. Double-check it with your group leader.";
+    return;
+  }
+
+  document.getElementById("join-dialog").close();
+  if (group.members.includes(acc.id)) {
+    showPopup({ icon: group.icon, title: "You're already in!", text: `You're already a member of ${group.name}.` });
+  } else {
+    group.members.push(acc.id);
+    acc.codeTries = [];
+    showPopup({ icon: group.icon, title: `Welcome to ${group.name}!`, text: "You can now see and post in your group's private board. 🎉" });
+  }
+  save();
+  if (location.hash === "#/board/" + group.id) render();
+  else location.hash = "#/board/" + group.id;
+});
+
 // ---------- Helpers ----------
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -330,11 +423,17 @@ function timeAgo(t) {
   return Math.floor(h / 24) + "d ago";
 }
 
-const findBoard = id => boards.find(b => b.id === id);
+const allBoards = () => [...boards, ...state.groups.map(g => ({ ...g, group: true }))];
+const findBoard = id => allBoards().find(b => b.id === id);
+const findGroup = id => state.groups.find(g => g.id === id);
+const inGroup = g => isMod() || g.members.includes(me().id);
+const canSeeBoard = b => !b.group || inGroup(b);
 const liveReplies = t => t.replies.filter(r => r.status === "live" && r.hidden === null);
 const isMine = post => post.authorId === me().id;
 
 function canSeeThread(t) {
+  const b = findBoard(t.board);
+  if (!b || !canSeeBoard(b)) return false; // private group you're not in
   if (t.removed !== null) return true; // shows as a short "removed" note
   if (t.status === "pending") return isMod() || isMine(t);
   if (t.hidden !== null) return isMod();
@@ -410,18 +509,19 @@ function toolbarView() {
 
 function homeView() {
   const weekly = state.threads.find(t => t.weekly && t.removed === null && t.hidden === null);
-  const boardCards = boards.map(b => {
+  const boardCard = b => {
     const count = state.threads.filter(t => t.board === b.id && canSeeThread(t) && t.removed === null).length;
     return `
       <a class="board-card" href="#/board/${b.id}">
         <span class="board-icon">${b.icon}</span>
         <div>
-          <h3>${b.name}${b.modOnly ? ` <span class="mod-only">Moderators only</span>` : ""}</h3>
-          <p>${b.desc}</p>
-          <span class="board-count">${count} thread${count === 1 ? "" : "s"}</span>
+          <h3>${esc(b.name)}${b.modOnly ? ` <span class="mod-only">Moderators only</span>` : ""}${b.group ? ` <span class="mod-only">🔒 Private</span>` : ""}</h3>
+          <p>${esc(b.desc)}</p>
+          <span class="board-count">${count} thread${count === 1 ? "" : "s"}${b.group ? ` · ${b.members.length} members` : ""}</span>
         </div>
       </a>`;
-  }).join("");
+  };
+  const myGroups = allBoards().filter(b => b.group && inGroup(b));
 
   return `
     <h1 class="page-title">Community</h1>
@@ -432,12 +532,33 @@ function homeView() {
         <strong>${esc(weekly.title.replace(/^Weekly prompt:\s*/, ""))}</strong>
         <span class="weekly-cta">Share yours →</span>
       </a>` : ""}
-    <div class="board-grid">${boardCards}</div>`;
+    <div class="board-grid">${boards.map(boardCard).join("")}</div>
+
+    <h2 class="replies-title">🔑 ${isMod() ? "Groups" : "Your groups"}</h2>
+    <p class="section-intro">Private spaces for each in-person group. Only members can see them.</p>
+    <div class="board-grid">
+      ${myGroups.map(boardCard).join("")}
+      ${isMod() ? "" : `
+        <button class="board-card join-card" data-action="join-group">
+          <span class="board-icon">🔑</span>
+          <div>
+            <h3>Join a group</h3>
+            <p>Got a code from your group leader? Enter it here.</p>
+          </div>
+        </button>`}
+    </div>`;
 }
 
 function boardView(id) {
   const b = findBoard(id);
   if (!b) return homeView();
+  if (!canSeeBoard(b)) {
+    return `
+      <a class="back" href="#/">← All boards</a>
+      <div class="card empty">🔒 This is a private group. If you're part of it, join with the code from your group leader.
+        <p><button class="btn btn-primary" data-action="join-group">🔑 Join a group</button></p>
+      </div>`;
+  }
 
   let list = state.threads.filter(t => t.board === id && canSeeThread(t));
   const popularity = t => t.hearts.length + liveReplies(t).length * 2;
@@ -471,8 +592,9 @@ function boardView(id) {
 
   return `
     <a class="back" href="#/">← All boards</a>
-    <h1 class="page-title">${b.icon} ${b.name}</h1>
-    <p class="section-intro">${b.desc}</p>
+    <h1 class="page-title">${b.icon} ${esc(b.name)}</h1>
+    <p class="section-intro">${esc(b.desc)}</p>
+    ${b.group ? `<p class="group-note">🔒 Private group · ${b.members.length} members${isMod() ? ` · Code: <span class="code-chip">${esc(b.code)}</span>` : ""}</p>` : ""}
 
     <div class="board-controls">
       <div class="sort-tabs" role="group" aria-label="Sort threads">
@@ -529,7 +651,7 @@ function threadView(id) {
     </form>`;
 
   return `
-    <a class="back" href="#/board/${b.id}">← ${b.icon} ${b.name}</a>
+    <a class="back" href="#/board/${b.id}">← ${b.icon} ${esc(b.name)}</a>
 
     ${ev ? `
       <div class="event-box">
@@ -602,6 +724,7 @@ const logLabels = {
   bullying: "🛑 Bullying or threat",
   hate: "🛑 Hate speech",
   "personal info": "🙈 Tried to share personal info",
+  codes: "🔑 Lots of wrong group codes",
   timeout: "⏸️ Quiet note: timeout",
   reported: "🚩 Reported by a member",
 };
@@ -647,6 +770,7 @@ function modView() {
           <div><strong>${esc(a.name)}</strong> <span class="mod-id">${esc(a.id)}</span>${a.id === myId ? ` <span class="chip-note">(you, in Kid view)</span>` : ""}</div>
           <div class="meta">
             Past names: ${a.history.length ? a.history.map(h => esc(h.name)).join(", ") : "none"} ·
+            Groups: ${state.groups.filter(g => g.members.includes(a.id)).map(g => esc(g.name)).join(", ") || "none"} ·
             Approved posts: ${Math.min(a.approved, NEW_USER_POSTS) < NEW_USER_POSTS ? `${a.approved} of ${NEW_USER_POSTS} (new member)` : "trusted"} ·
             Slips today: ${a.slips.filter(t => Date.now() - t < SLIP_WINDOW).length} ·
             Safety reports: ${reports} · ${status}
@@ -664,6 +788,21 @@ function modView() {
 
     <h2 class="replies-title">Safety reports (${state.log.length})</h2>
     <ul class="leader-log">${logItems || `<li class="empty">Nothing yet. Try posting a bad word or a phone number in Kid view.</li>`}</ul>
+
+    <h2 class="replies-title">Groups</h2>
+    <p class="section-intro">Hand out each group's code at its first meeting. If a code gets out, make a new one: the old code stops working, and current members stay in.</p>
+    <ul class="pending-list">${state.groups.map(g => `
+      <li class="card">
+        <div class="group-head">
+          <strong>${g.icon} ${esc(g.name)}</strong>
+          <span>Code: <span class="code-chip">${esc(g.code)}</span></span>
+          <button class="chip-btn" data-action="new-code" data-group="${g.id}">🔄 New code</button>
+        </div>
+        <div class="member-chips">
+          ${g.members.map(id => `<span class="member-chip">${avatar(accountOf(id))}${esc(nameOf(id))}<button data-action="remove-member" data-group="${g.id}" data-member="${id}" aria-label="Remove ${esc(nameOf(id))} from ${esc(g.name)}" title="Remove from group">✕</button></span>`).join("") || `<span class="chip-note">No members yet</span>`}
+        </div>
+      </li>`).join("")}
+    </ul>
 
     <h2 class="replies-title">Members</h2>
     <p class="section-intro">Each member has a hidden ID that never changes. Names, warnings, and timeouts all stay attached to it.</p>
@@ -755,6 +894,19 @@ document.addEventListener("click", async e => {
     case "avatar":
       me().avatar = el.dataset.avatar;
       break;
+    case "join-group":
+      openJoinDialog();
+      return;
+    case "new-code": {
+      const g = findGroup(el.dataset.group);
+      g.code = makeCode();
+      break;
+    }
+    case "remove-member": {
+      const g = findGroup(el.dataset.group);
+      g.members = g.members.filter(id => id !== el.dataset.member);
+      break;
+    }
     case "change-name":
       openNameDialog();
       return;

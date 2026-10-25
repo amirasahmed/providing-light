@@ -1,7 +1,7 @@
 :root {
   /* Colors: navy, gold, and cream */
-  --bg: #faf6ec;
-  --card: #fffdf8;
+  --bg: #f2e9d6;
+  --card: #f9f2e3;
   --text: #1b2a44;
   --muted: #5f6b7f;
   --sun: #c9a227;
@@ -9,14 +9,14 @@
   --primary: #1f3a60;
   --primary-dark: #152a47;
   --on-primary: #faf6ec;
-  --soft: #f2ead4;
-  --border: #e8dfc9;
+  --soft: #eadfc4;
+  --border: #e0d3b6;
   --danger: #b03a2e;
   --radius: 16px;
-  --header-bg: rgba(250, 246, 236, 0.92);
-  --subtle: #f6f0e1;
-  --bubble: #efe8d8;
-  --leader-bg: #f7ecc8;
+  --header-bg: rgba(242, 233, 214, 0.92);
+  --subtle: #efe5cf;
+  --bubble: #ebe1ca;
+  --leader-bg: #f3e4b8;
   --leader-border: #e3cf8a;
   --banner-border: #e3cf8a;
   --logo-frame: #1f3a60;
@@ -57,8 +57,8 @@
 /* Themes, picked with the gear button. Classic (above) follows the device's light/dark setting. */
 :root[data-theme="rose"] {
   color-scheme: light;
-  --bg: #fdf3f4;
-  --card: #fffafa;
+  --bg: #f5dfe3;
+  --card: #fbedf0;
   --text: #4a2430;
   --muted: #8b6670;
   --sun: #e7a07e;
@@ -66,13 +66,13 @@
   --primary: #b4466a;
   --primary-dark: #963655;
   --on-primary: #fff8f9;
-  --soft: #f8e1e7;
-  --border: #f0d6dc;
+  --soft: #f0cfd7;
+  --border: #e9c6ce;
   --danger: #b03a2e;
-  --header-bg: rgba(253, 243, 244, 0.92);
-  --subtle: #fbeaee;
-  --bubble: #f6e3e8;
-  --leader-bg: #fbe6d9;
+  --header-bg: rgba(245, 223, 227, 0.92);
+  --subtle: #f2dbe0;
+  --bubble: #eed3d9;
+  --leader-bg: #f7dccb;
   --leader-border: #eec2a8;
   --banner-border: #eec2cf;
   --logo-frame: #8c3553;
@@ -107,8 +107,8 @@
 }
 :root[data-theme="mulberry"] {
   color-scheme: light;
-  --bg: #f8f2fa;
-  --card: #fffbff;
+  --bg: #ece0f2;
+  --card: #f5edf9;
   --text: #3a1d48;
   --muted: #77607f;
   --sun: #d9a441;
@@ -116,13 +116,13 @@
   --primary: #7a3e98;
   --primary-dark: #622f7d;
   --on-primary: #fdf8ff;
-  --soft: #eee0f5;
-  --border: #e5d4ed;
+  --soft: #e2cfec;
+  --border: #dac6e5;
   --danger: #b03a2e;
-  --header-bg: rgba(248, 242, 250, 0.92);
-  --subtle: #f3e9f7;
-  --bubble: #efe3f4;
-  --leader-bg: #f6ecd2;
+  --header-bg: rgba(236, 224, 242, 0.92);
+  --subtle: #e8dbef;
+  --bubble: #e3d4ea;
+  --leader-bg: #f1e4c4;
   --leader-border: #e2cb8f;
   --banner-border: #dcc6ea;
   --logo-frame: #5a2c73;
@@ -132,8 +132,8 @@
 }
 :root[data-theme="nature"] {
   color-scheme: light;
-  --bg: #f2f6ee;
-  --card: #fbfdf8;
+  --bg: #e3ecdc;
+  --card: #eef4e9;
   --text: #1e3727;
   --muted: #5d7364;
   --sun: #d4a843;
@@ -141,13 +141,13 @@
   --primary: #3d7a4e;
   --primary-dark: #2e6340;
   --on-primary: #f7fbf4;
-  --soft: #e0ecda;
-  --border: #d4e2cd;
+  --soft: #d3e3cb;
+  --border: #c9dbc0;
   --danger: #b03a2e;
-  --header-bg: rgba(242, 246, 238, 0.92);
-  --subtle: #e9f1e4;
-  --bubble: #e4eedf;
-  --leader-bg: #f4ecd0;
+  --header-bg: rgba(227, 236, 220, 0.92);
+  --subtle: #dfe9d8;
+  --bubble: #d9e5d1;
+  --leader-bg: #efe5c4;
   --leader-border: #dfcb8c;
   --banner-border: #c9dcc0;
   --logo-frame: #2e5a3a;
@@ -619,8 +619,80 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
 }
 .member .meta { margin-top: 4px; }
 
+/* Home page */
+.about {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  align-items: center;
+  gap: 40px;
+}
+.about-text p { font-size: 1.08rem; }
+.about-art {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--sun-glow) 0%, transparent 70%);
+}
+.lantern.big { width: 45%; height: auto; filter: drop-shadow(0 0 24px var(--sun-glow)); }
+
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.feature-card {
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.feature-icon { font-size: 1.8rem; }
+.feature-card h3 { margin: 8px 0 4px; font-size: 1.15rem; }
+.feature-card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  counter-reset: none;
+}
+.steps li {
+  position: relative;
+  padding: 20px 18px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--sun);
+  border-radius: var(--radius);
+}
+.steps li:last-child { border-top-color: var(--primary); }
+.step-num {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 800;
+}
+.steps h3 { margin: 10px 0 4px; font-size: 1.1rem; }
+.steps p { margin: 0; color: var(--muted); font-size: 0.93rem; }
+
+.parents-card {
+  padding: 28px 32px;
+  border-radius: var(--radius);
+  background: var(--soft);
+  border: 1px solid var(--border);
+}
+.parents-card h2 { margin-top: 0; }
+.parents-card ul { padding-left: 20px; margin: 0; display: grid; gap: 8px; }
+
+.cta { text-align: center; }
+.cta h2::after { margin-left: auto; margin-right: auto; }
+.cta p { color: var(--muted); font-size: 1.1rem; margin: 8px 0 20px; }
+
 /* Rules */
-.rules { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.rules { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; }
 .rules li {
   display: flex;
   gap: 14px;
@@ -645,6 +717,64 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
+/* Groups */
+.join-card {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-style: dashed;
+}
+.group-note { margin: -16px 0 20px; font-size: 0.9rem; font-weight: 700; color: var(--muted); }
+.code-chip {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--text);
+  font-family: ui-monospace, Menlo, monospace;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.code-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 1.3rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+.code-input:focus { outline: none; border-color: var(--primary); }
+.popup .join-error { margin: 8px 0 16px; min-height: 1.2em; color: var(--danger); font-weight: 700; font-size: 0.9rem; }
+.group-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.member-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 4px 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.member-chip .avatar { width: 22px; height: 22px; }
+.member-chip button {
+  margin-left: 4px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+}
+.member-chip button:hover { background: var(--soft); color: var(--danger); }
 
 /* Settings (gear button) */
 .settings {
@@ -747,6 +877,11 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
 .avatar-choice.on { border-color: var(--primary); }
 .avatar-choice svg { display: block; width: 100%; height: auto; }
 
+/* Tablets */
+@media (max-width: 860px) {
+  .steps { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* Phones */
 @media (max-width: 600px) {
   .site-header { padding: 10px 16px; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
@@ -755,6 +890,11 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
   .hero { padding: 48px 16px 32px; }
   .section { padding: 36px 16px; }
   .board-grid { grid-template-columns: 1fr; }
+  .about { grid-template-columns: 1fr; gap: 0; }
+  .about-art { display: none; }
+  .steps { grid-template-columns: 1fr; }
+  .rules { grid-template-columns: 1fr; }
+  .parents-card { padding: 22px 20px; }
   .page-title { font-size: 1.6rem; }
   .post-title { font-size: 1.35rem; }
   .children:not(:empty) { padding-left: 10px; }

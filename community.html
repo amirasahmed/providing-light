@@ -28,9 +28,10 @@
       Providing Light
     </a>
     <nav>
+      <a href="index.html#about">About</a>
       <a href="index.html#events">Events</a>
       <a href="community.html" aria-current="page">Community</a>
-      <a href="index.html#rules">Safety</a>
+      <a href="index.html#safety">Safety</a>
     </nav>
   </header>
 
@@ -78,6 +79,21 @@
       <div class="popup-buttons">
         <button class="btn btn-ghost" value="cancel">Cancel</button>
         <button class="btn btn-primary" id="name-ok">Use this name</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="join-dialog" class="popup" aria-labelledby="join-title">
+    <form method="dialog">
+      <div class="popup-icon">🔑</div>
+      <h3 id="join-title">Join a group</h3>
+      <p>Enter the code you got from your group leader.</p>
+      <label for="join-code" class="visually-hidden">Group code</label>
+      <input id="join-code" class="code-input" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC-1234">
+      <p id="join-error" class="join-error" role="alert"></p>
+      <div class="popup-buttons">
+        <button type="button" class="btn btn-ghost" id="join-cancel">Cancel</button>
+        <button class="btn btn-primary" id="join-ok">Join</button>
       </div>
     </form>
   </dialog>
