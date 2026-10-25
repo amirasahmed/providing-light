@@ -826,7 +826,8 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
   font-weight: 800;
   text-decoration: none;
 }
-.quick-link span { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.quick-link > span:last-child { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.program-chat-btn .count { margin-left: 4px; }
 .quick-link:hover { border-color: var(--sun); }
 .approval-note { margin: 0; font-size: 0.85rem; color: var(--muted); }
 

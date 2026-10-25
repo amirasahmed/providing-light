@@ -597,7 +597,7 @@ function homeView() {
     <h1 class="page-title">Community</h1>
     <p class="section-intro">Pick a board, start a thread, and help each other out.</p>
     <div class="quick-links">
-      ${state.groups.filter(inGroup).map(g => `<a class="quick-link" href="#/chat/${g.id}">${g.icon} ${esc(g.day.replace(/s$/, ""))} chat <span>Talk with your program</span></a>`).join("")}
+      ${state.groups.filter(inGroup).map(g => `<a class="quick-link" href="#/chat/${g.id}"><span>${g.icon} ${esc(g.day.replace(/s$/, ""))} chat${unreadBadge(g)}</span><span>Talk with your program</span></a>`).join("")}
       <a class="quick-link" href="#/chat">💬 Help chat <span>Questions about the app</span></a>
       <a class="quick-link" href="#/join">🔑 ${isMod() ? "Program codes" : "Join your program"} <span>Sat · Sun · Wed · Thu</span></a>
     </div>
@@ -668,7 +668,7 @@ function boardView(id) {
     <a class="back" href="#/">← All boards</a>
     <h1 class="page-title">${b.icon} ${esc(b.name)}</h1>
     <p class="section-intro">${esc(b.desc)}</p>
-    ${b.group ? `<a class="btn btn-primary program-chat-btn" href="#/chat/${b.id}">💬 Open the ${esc(b.name)} chat</a>` : ""}
+    ${b.group ? `<a class="btn btn-primary program-chat-btn" href="#/chat/${b.id}">💬 Open the ${esc(b.name)} chat${unreadBadge(findGroup(b.id))}</a>` : ""}
     ${b.group ? `<p class="group-note">🔒 Private program · ${memberCount(b)}${isMod() ? ` · Code: <span class="code-chip">${esc(b.code)}</span>` : ""}</p>` : ""}
 
     <div class="board-controls">
@@ -872,7 +872,7 @@ function joinView() {
           <p class="meta">${esc(g.day)} · ${memberCount(g)}</p>
           ${isMod()
             ? `<p>Code: <span class="code-chip">${esc(g.code)}</span> <button class="chip-btn" data-action="new-code" data-group="${g.id}">🔄 New code</button></p>`
-            : member ? `<a class="event-link" href="#/board/${g.id}">✅ You're in · Open board →</a> <a class="event-link" href="#/chat/${g.id}">💬 Chat →</a>` : `<p class="chip-note">🔒 Locked</p>`}
+            : member ? `<a class="event-link" href="#/board/${g.id}">✅ You're in · Open board →</a> <a class="event-link" href="#/chat/${g.id}">💬 Chat${unreadBadge(g)} →</a>` : `<p class="chip-note">🔒 Locked</p>`}
         </div>
       </div>`;
   }).join("");
@@ -952,6 +952,17 @@ function chatView(roomId) {
     </div>`;
 }
 
+// Unread messages in a program chat: ones from other people since you last opened it.
+function unreadCount(g) {
+  const lastRead = (me().lastRead || {})[g.id] || 0;
+  return g.chat.filter(m => m.time > lastRead && m.authorId !== me().id && m.hidden === null).length;
+}
+
+function unreadBadge(g) {
+  const n = unreadCount(g);
+  return n ? ` <span class="count" aria-label="${n} unread">${n} new</span>` : "";
+}
+
 // Notices from moderators that this kid hasn't dismissed yet.
 function noticesView() {
   if (isMod()) return "";
@@ -1011,7 +1022,15 @@ function render() {
   else if (view === "thread") forum.innerHTML = threadView(id);
   else if (view === "mod") forum.innerHTML = modView();
   else if (view === "join") forum.innerHTML = joinView();
-  else if (view === "chat") forum.innerHTML = chatView(id);
+  else if (view === "chat") {
+    forum.innerHTML = chatView(id);
+    // Opening a program chat marks its messages as read.
+    const g = id && findGroup(id);
+    if (g && inGroup(g)) {
+      (me().lastRead ||= {})[g.id] = Date.now();
+      save();
+    }
+  }
   else forum.innerHTML = homeView();
   document.getElementById("settings-extra").innerHTML = avatarPickerView();
   updateTimeout();
