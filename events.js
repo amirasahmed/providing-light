@@ -15,8 +15,15 @@ function formatEventDate(e) {
   return eventDate(e).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+// Today's date where the visitor is (not London time), as YYYY-MM-DD.
+function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// An event counts as past only once its day is over.
 function isPast(e) {
-  return e.date < new Date().toISOString().slice(0, 10);
+  return e.date < todayLocal();
 }
 
 // Shows the event cards on the home page.

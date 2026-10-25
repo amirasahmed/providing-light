@@ -3,7 +3,7 @@ const MAX_DEPTH = 3;                          // replies can nest this many leve
 const SLIP_LIMIT = 3;                         // bad-word slips allowed in one day before a timeout
 const SLIP_WINDOW = 24 * 60 * 60 * 1000;      // one day
 const TIMEOUT_LENGTH = 10 * 60 * 1000;        // 10 minutes
-const SPAM_LIMIT = 20;                        // more posts than this in SPAM_WINDOW...
+const SPAM_LIMIT = 5;                         // more posts than this in SPAM_WINDOW...
 const SPAM_WINDOW = 30 * 1000;                // ...30 seconds...
 const SPAM_PAUSE = 60 * 1000;                 // ...pauses posting for 1 minute
 const NAME_CHANGE_WAIT = 30 * 24 * 60 * 60 * 1000; // 30 days between name changes
@@ -46,17 +46,26 @@ function makeAccount(id, name, role = "kid", history = [], avatar = null) {
 const accountOf = id => state.accounts[id] || { id, name: "Former member", role: "kid", history: [], avatar: "lantern" };
 const nameOf = id => accountOf(id).name;
 
-let viewMode = localStorage.getItem("pl-view") || "kid";
+// Some browsers (like certain private modes) block saving. Then the demo still works, it just forgets on reload.
+const store = {
+  get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch {} },
+  remove(key) { try { localStorage.removeItem(key); } catch {} },
+};
+let memoryUserId = null; // used when the browser won't save the account ID
+
+let viewMode = store.get("pl-view") || "kid";
 const isMod = () => viewMode === "mod";
-const myAccount = () => state.accounts[localStorage.getItem("pl-user-id")];
+const myAccount = () => state.accounts[store.get("pl-user-id") || memoryUserId];
 const me = () => (isMod() ? state.accounts[MOD_ID] : myAccount());
 
 // In the real version a parent creates the account. In the demo, one is made on your first visit.
 function ensureMyAccount(s) {
-  let id = localStorage.getItem("pl-user-id");
+  let id = store.get("pl-user-id") || memoryUserId;
   if (id && s.accounts[id]) return;
   do id = "user_" + Math.floor(10000 + Math.random() * 90000); while (s.accounts[id]);
-  localStorage.setItem("pl-user-id", id);
+  memoryUserId = id;
+  store.set("pl-user-id", id);
   s.accounts[id] = makeAccount(id, randomName(s.accounts), "kid");
   s.accounts[id].created = Date.now(); // so new kids don't see notices from before they joined
 }
@@ -188,6 +197,17 @@ function seedGroups(s) {
   );
 }
 
+// The All Programs chat: one big chat for kids from every program day.
+function seedAllChat() {
+  return [
+    { id: newId(), authorId: MOD_ID, time: hoursAgo(60), hidden: null,
+      text: "Welcome to the All Programs chat! 🌍 This is one big chat for kids from every program day. Say salam and meet kids from the other programs!" },
+    { id: newId(), authorId: "user_47019", time: hoursAgo(9), hidden: null, text: "Hi from the Saturday program! 👋" },
+    { id: newId(), authorId: "user_83391", time: hoursAgo(7), hidden: null, text: "Salam from Wednesday! Is anyone reading anything good?" },
+    { id: newId(), authorId: "user_60284", time: hoursAgo(6), hidden: null, text: "I just finished a book of stories about the Prophets. So good!" },
+  ];
+}
+
 // The help chat: one shared, public chat for questions about the app.
 function seedChat(s) {
   s.chat = [
@@ -216,7 +236,7 @@ let state;
 function loadState() {
   let s;
   try {
-    s = JSON.parse(localStorage.getItem("pl-forum"));
+    s = JSON.parse(store.get("pl-forum"));
   } catch {}
   if (!s || s.version !== 2) s = seedState();
   ensureEventThreads(s);
@@ -229,6 +249,7 @@ function loadState() {
   if (!s.chat) seedChat(s);
   for (const g of s.groups) g.chat ||= [];
   s.notices ||= []; // site-wide notices from moderators, like a changed program code
+  s.allChat ||= seedAllChat();
   // Saves from when new members' posts needed approval: publish anything still waiting.
   for (const t of s.threads) {
     delete t.status;
@@ -240,7 +261,7 @@ function loadState() {
 }
 
 state = loadState();
-const save = () => localStorage.setItem("pl-forum", JSON.stringify(state));
+const save = () => store.set("pl-forum", JSON.stringify(state));
 save();
 
 // Things that only matter while the page is open.
@@ -260,10 +281,13 @@ const seriousChecks = [
   { type: "hate", test: t => /\b(go back to your country)\b/i.test(t) },
   { type: "personal info", test: t =>
       /\S+@\S+\.\S+/.test(t) ||                                   // email
-      /(\d[\s\-.()]*){7,}/.test(t) ||                             // phone number
+      /(\(\d{3}\)\s?|\b\d{3}[\s.-]?)\d{3}[\s.-]?\d{4}\b/.test(t) ||   // phone number like 555-123-4567
+      /\b\d{3}[\s.-]\d{4}\b/.test(t) ||                           // short phone number like 123-4567
       /@\w{3,}/.test(t) ||                                        // @username
-      /\b(instagram|insta|snapchat|snap|tiktok|discord)\b/i.test(t) ||
-      /\b(i live (at|on)|my address|my school is)\b/i.test(t) },
+      /\b(instagram|insta|snapchat|tiktok|discord)\b/i.test(t) ||
+      /\b(i live (at|on)|my address)\b/i.test(t) ||
+      /\bmy school'?s name is\b/i.test(t) ||                      // naming a school, but not "my school is so hard"
+      /\b(my school is|i go to|i attend)\s+([\w'.-]+\s+){1,4}(middle|high|elementary|academy|prep|intermediate|montessori)\b/i.test(t) },
 ];
 
 function findSerious(text) {
@@ -431,7 +455,7 @@ function tryModSignIn(raw) {
   if (normalizeCode(raw) === normalizeCode(MOD_CODE)) {
     acc.codeTries = [];
     viewMode = "mod";
-    localStorage.setItem("pl-view", viewMode);
+    store.set("pl-view", viewMode);
     return { ok: true };
   }
   acc.codeTries.push(now);
@@ -596,8 +620,16 @@ function homeView() {
   return `
     <h1 class="page-title">Community</h1>
     <p class="section-intro">Pick a board, start a thread, and help each other out.</p>
+    <a class="big-chat-card" href="#/chat/all">
+      <span class="board-icon">🌍</span>
+      <span class="big-chat-text">
+        <strong>All Programs chat${unreadBadge(chatRoom("all"))}</strong>
+        <span>One big chat for kids from every program day.</span>
+      </span>
+      <span class="weekly-cta">Open →</span>
+    </a>
     <div class="quick-links">
-      ${state.groups.filter(inGroup).map(g => `<a class="quick-link" href="#/chat/${g.id}"><span>${g.icon} ${esc(g.day.replace(/s$/, ""))} chat${unreadBadge(g)}</span><span>Talk with your program</span></a>`).join("")}
+      ${state.groups.filter(inGroup).map(g => `<a class="quick-link" href="#/chat/${g.id}"><span>${g.icon} ${esc(g.day.replace(/s$/, ""))} chat${unreadBadge(chatRoom(g.id))}</span><span>Talk with your program</span></a>`).join("")}
       <a class="quick-link" href="#/chat">💬 Help chat <span>Questions about the app</span></a>
       <a class="quick-link" href="#/join">🔑 ${isMod() ? "Program codes" : "Join your program"} <span>Sat · Sun · Wed · Thu</span></a>
     </div>
@@ -668,7 +700,7 @@ function boardView(id) {
     <a class="back" href="#/">← All boards</a>
     <h1 class="page-title">${b.icon} ${esc(b.name)}</h1>
     <p class="section-intro">${esc(b.desc)}</p>
-    ${b.group ? `<a class="btn btn-primary program-chat-btn" href="#/chat/${b.id}">💬 Open the ${esc(b.name)} chat${unreadBadge(findGroup(b.id))}</a>` : ""}
+    ${b.group ? `<a class="btn btn-primary program-chat-btn" href="#/chat/${b.id}">💬 Open the ${esc(b.name)} chat${unreadBadge(chatRoom(b.id))}</a>` : ""}
     ${b.group ? `<p class="group-note">🔒 Private program · ${memberCount(b)}${isMod() ? ` · Code: <span class="code-chip">${esc(b.code)}</span>` : ""}</p>` : ""}
 
     <div class="board-controls">
@@ -900,7 +932,7 @@ function joinView() {
           <p class="meta">${esc(g.day)} · ${memberCount(g)}</p>
           ${isMod()
             ? `<p>Code: <span class="code-chip">${esc(g.code)}</span> <button class="chip-btn" data-action="new-code" data-group="${g.id}">🔄 New code</button></p>`
-            : member ? `<a class="event-link" href="#/board/${g.id}">✅ You're in · Open board →</a> <a class="event-link" href="#/chat/${g.id}">💬 Chat${unreadBadge(g)} →</a>` : `<p class="chip-note">🔒 Locked</p>`}
+            : member ? `<a class="event-link" href="#/board/${g.id}">✅ You're in · Open board →</a> <a class="event-link" href="#/chat/${g.id}">💬 Chat${unreadBadge(chatRoom(g.id))} →</a>` : `<p class="chip-note">🔒 Locked</p>`}
         </div>
       </div>`;
   }).join("");
@@ -933,21 +965,45 @@ function joinView() {
       </div>`}`;
 }
 
-function chatRoomName(msg) {
-  const g = state.groups.find(x => x.chat.includes(msg));
-  return g ? `${g.name} chat` : "Help chat";
+// Every chat room: the help chat (no id), the All Programs chat ("all"), and one per program day.
+function chatRoom(roomId) {
+  if (!roomId) {
+    return { id: "", name: "Help chat", title: "💬 Help chat", messages: state.chat, canUse: true, back: ["#/", "← All boards"],
+      intro: "Questions about how the app works? Ask here and a program leader will help. Everyone can see this chat.",
+      placeholder: isMod() ? "Answer a question…" : "Ask a question about the app…" };
+  }
+  if (roomId === "all") {
+    return { id: "all", name: "All Programs chat", title: "🌍 All Programs chat", messages: state.allChat, canUse: !needsProgram(), back: ["#/", "← All boards"],
+      intro: "One big chat for kids from every program day. Program leaders can see this chat too.",
+      placeholder: "Message everyone…" };
+  }
+  const g = findGroup(roomId);
+  if (!g) return null;
+  return { id: g.id, name: `${g.name} chat`, title: `${g.icon} ${esc(g.name)} chat`, messages: g.chat, canUse: inGroup(g), back: [`#/board/${g.id}`, `← ${g.icon} ${esc(g.name)} board`],
+    intro: `Chat with everyone in the ${esc(g.name)}. Program leaders can see this chat too.`,
+    placeholder: "Message your program…" };
 }
 
-// roomId: a program's id for that program's chat, or nothing for the help chat.
+const allChatRooms = () => [chatRoom(""), chatRoom("all"), ...state.groups.map(g => chatRoom(g.id))];
+
+function chatRoomName(msg) {
+  return allChatRooms().find(r => r.messages.includes(msg)).name;
+}
+
+// In the All Programs chat, show which program days each kid is in.
+function programTag(id) {
+  const icons = state.groups.filter(g => g.members.includes(id)).map(g => `${g.icon} ${esc(g.day.replace(/s$/, "").slice(0, 3))}`);
+  return icons.length ? ` <span class="chat-program">${icons.join(" · ")}</span>` : "";
+}
+
 function chatView(roomId) {
-  const group = roomId && findGroup(roomId);
-  if (roomId && (!group || !inGroup(group))) {
+  const room = chatRoom(roomId);
+  if (!room || !room.canUse) {
     return `
       <a class="back" href="#/">← All boards</a>
-      <div class="card empty">🔒 This chat is only for kids in that program. <a href="#/join">Join with your program's code</a>.</div>`;
+      <div class="card empty">🔒 This chat is only for kids in ${roomId === "all" ? "a program" : "that program"}. <a href="#/join">Join with your program's code</a>.</div>`;
   }
-  const messages = group ? group.chat : state.chat;
-  const items = messages.map(m => {
+  const items = room.messages.map(m => {
     const acc = accountOf(m.authorId);
     const hiddenForMe = m.hidden !== null && !isMod();
     const tools = isMod()
@@ -957,38 +1013,34 @@ function chatView(roomId) {
           : "");
     return `
       <div class="chat-msg ${m.authorId === me().id ? "mine" : ""} ${acc.role !== "kid" ? "leader" : ""} ${m.hidden !== null ? "is-hidden" : ""}">
-        <div class="chat-meta">${author(m.authorId)} · ${timeAgo(m.time)} ${tools}</div>
+        <div class="chat-meta">${author(m.authorId)}${room.id === "all" && acc.role === "kid" ? programTag(acc.id) : ""} · ${timeAgo(m.time)} ${tools}</div>
         <p>${hiddenForMe ? `<em>Removed by a moderator.</em>` : esc(m.text)}</p>
         ${m.hidden !== null && isMod() ? `<p class="chip-note">👁️ Hidden from kids</p>` : ""}
       </div>`;
   }).join("");
 
   return `
-    ${group
-      ? `<a class="back" href="#/board/${group.id}">← ${group.icon} ${esc(group.name)} board</a>
-         <h1 class="page-title">${group.icon} ${esc(group.name)} chat</h1>
-         <p class="section-intro">Chat with everyone in the ${esc(group.name)}. Program leaders can see this chat too.</p>`
-      : `<a class="back" href="#/">← All boards</a>
-         <h1 class="page-title">💬 Help chat</h1>
-         <p class="section-intro">Questions about how the app works? Ask here and a program leader will help. Everyone can see this chat.</p>`}
+    <a class="back" href="${room.back[0]}">${room.back[1]}</a>
+    <h1 class="page-title">${room.title}</h1>
+    <p class="section-intro">${room.intro}</p>
     <div class="chat-box">
       <div class="chat-messages" id="chat-messages">${items || `<p class="empty">No messages yet. Say salam! 👋</p>`}</div>
-      <form class="chat-form" data-form="chat" data-room="${group ? group.id : ""}">
+      <form class="chat-form" data-form="chat" data-room="${room.id}">
         <label for="chat-input" class="visually-hidden">Your message</label>
-        <input id="chat-input" name="body" maxlength="300" autocomplete="off" required placeholder="${group ? "Message your program…" : isMod() ? "Answer a question…" : "Ask a question about the app…"}">
+        <input id="chat-input" name="body" maxlength="300" autocomplete="off" required placeholder="${room.placeholder}">
         <button class="btn btn-primary" data-post-btn>Send</button>
       </form>
     </div>`;
 }
 
-// Unread messages in a program chat: ones from other people since you last opened it.
-function unreadCount(g) {
-  const lastRead = (me().lastRead || {})[g.id] || 0;
-  return g.chat.filter(m => m.time > lastRead && m.authorId !== me().id && m.hidden === null).length;
+// Unread messages in a chat room: ones from other people since you last opened it.
+function unreadCount(room) {
+  const lastRead = (me().lastRead || {})[room.id] || 0;
+  return room.messages.filter(m => m.time > lastRead && m.authorId !== me().id && m.hidden === null).length;
 }
 
-function unreadBadge(g) {
-  const n = unreadCount(g);
+function unreadBadge(room) {
+  const n = unreadCount(room);
   return n ? ` <span class="count" aria-label="${n} unread">${n} new</span>` : "";
 }
 
@@ -1052,10 +1104,10 @@ function render() {
   else if (view === "join") forum.innerHTML = joinView();
   else if (view === "chat") {
     forum.innerHTML = chatView(id);
-    // Opening a program chat marks its messages as read.
-    const g = id && findGroup(id);
-    if (g && inGroup(g)) {
-      (me().lastRead ||= {})[g.id] = Date.now();
+    // Opening a program chat (or the All Programs chat) marks its messages as read.
+    const room = id && chatRoom(id);
+    if (room && room.canUse) {
+      (me().lastRead ||= {})[room.id] = Date.now();
       save();
     }
   }
@@ -1076,7 +1128,7 @@ document.addEventListener("click", async e => {
   const t = state.threads.find(x => x.id === threadId);
   const r = t && replyId ? t.replies.find(x => x.id === replyId) : null;
   const target = r || t;
-  const msg = el.dataset.msg && [state.chat, ...state.groups.map(g => g.chat)].flat().find(m => m.id === el.dataset.msg);
+  const msg = el.dataset.msg && allChatRooms().flatMap(r => r.messages).find(m => m.id === el.dataset.msg);
 
   switch (action) {
     case "heart": {
@@ -1126,7 +1178,7 @@ document.addEventListener("click", async e => {
       break;
     case "mod-signout":
       viewMode = "kid";
-      localStorage.setItem("pl-view", viewMode);
+      store.set("pl-view", viewMode);
       replyingTo = null;
       save();
       if (location.hash && location.hash !== "#/") { location.hash = "#/"; return; }
@@ -1163,6 +1215,7 @@ document.addEventListener("click", async e => {
       state.notices = state.notices.filter(n => n.id !== el.dataset.notice);
       // Take it out of the program chats too.
       for (const g of state.groups) g.chat = g.chat.filter(m => m.noticeId !== el.dataset.notice);
+      state.allChat = state.allChat.filter(m => m.noticeId !== el.dataset.notice);
       break;
     }
     case "dismiss-notice":
@@ -1178,8 +1231,9 @@ document.addEventListener("click", async e => {
       openNameDialog();
       return;
     case "reset":
-      localStorage.removeItem("pl-forum");
-      localStorage.removeItem("pl-user-id");
+      store.remove("pl-forum");
+      store.remove("pl-user-id");
+      memoryUserId = null;
       state = loadState();
       break;
   }
@@ -1202,6 +1256,7 @@ document.addEventListener("submit", e => {
     const notice = { id: newId(), kind: "announcement", groupId, text, time: Date.now() };
     state.notices.unshift(notice);
     // Also post it in the program chat (or every program chat), so it stays there after the banner is dismissed.
+    if (!groupId) state.allChat.push({ id: newId(), noticeId: notice.id, authorId: MOD_ID, text: "📣 " + text, time: Date.now(), hidden: null });
     for (const g of state.groups.filter(x => !groupId || x.id === groupId)) {
       g.chat.push({ id: newId(), noticeId: notice.id, authorId: MOD_ID, text: "📣 " + text, time: Date.now(), hidden: null });
     }
@@ -1251,13 +1306,13 @@ document.addEventListener("submit", e => {
   if (timeLeft() > 0 || hitSpamLimit()) return;
 
   if (form.dataset.form === "chat") {
-    const group = form.dataset.room && findGroup(form.dataset.room);
-    if (form.dataset.room && (!group || !inGroup(group))) return;
+    const room = chatRoom(form.dataset.room);
+    if (!room || !room.canUse) return;
     const body = data.get("body").trim();
     if (!body) return;
-    const result = checkPost([body], group ? `${group.name} chat` : "Help chat");
+    const result = checkPost([body], room.name);
     if (!result) { save(); render(); return; }
-    (group ? group.chat : state.chat).push({ id: newId(), authorId: me().id, text: result.texts[0], time: Date.now(), hidden: null });
+    room.messages.push({ id: newId(), authorId: me().id, text: result.texts[0], time: Date.now(), hidden: null });
     save();
     render();
     document.getElementById("chat-input").focus();

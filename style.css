@@ -829,6 +829,25 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
 .quick-link > span:last-child { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
 .program-chat-btn .count { margin-left: 4px; }
 .quick-link:hover { border-color: var(--sun); }
+.big-chat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 18px 22px;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.15s;
+}
+.big-chat-card:hover { transform: translateY(-2px); }
+.big-chat-text { flex: 1; display: flex; flex-direction: column; }
+.big-chat-text strong { font-family: "Lora", Georgia, serif; font-size: 1.25rem; font-weight: 600; }
+.big-chat-text > span { color: var(--muted); font-size: 0.93rem; }
+.big-chat-card .weekly-cta { color: var(--primary); }
+.chat-program { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
 .approval-note { margin: 0; font-size: 0.85rem; color: var(--muted); }
 
 /* Join your program */
