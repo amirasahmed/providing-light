@@ -488,7 +488,7 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
 }
 .thread-item a:hover { border-color: var(--sun); }
 .thread-item h3 { margin: 6px 0 2px; font-size: 1.1rem; }
-.thread-item.pending a, .thread-item.is-hidden a, .reply.pending { border-style: dashed; opacity: 0.8; }
+.thread-item.is-hidden a { border-style: dashed; opacity: 0.8; }
 .thread-item.removed { padding: 12px 18px; color: var(--muted); font-size: 0.93rem; }
 .meta { font-size: 0.85rem; color: var(--muted); }
 .meta strong { color: var(--text); }
@@ -752,7 +752,8 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
   cursor: pointer;
   border-style: dashed;
 }
-.group-note { margin: -16px 0 20px; font-size: 0.9rem; font-weight: 700; color: var(--muted); }
+.program-chat-btn { margin: -8px 0 12px; }
+.group-note { margin: 0 0 20px; font-size: 0.9rem; font-weight: 700; color: var(--muted); }
 .code-chip {
   display: inline-block;
   padding: 1px 10px;
@@ -869,6 +870,24 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
 .mod-signin { margin-top: 28px; }
 .mod-signin .replies-title { margin-top: 0; }
 .mod-signin .join-form { margin-bottom: 0; }
+
+/* Notices from moderators (e.g. a program code changed) */
+.notice-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--leader-bg);
+  border: 1px solid var(--leader-border);
+  font-weight: 700;
+}
+.notice-banner .btn { padding: 8px 18px; }
+.home-notices { max-width: 960px; margin: 24px auto 0; padding: 0 24px; }
+.home-notices:empty { display: none; }
 
 /* Help chat */
 .chat-box {

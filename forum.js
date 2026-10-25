@@ -1,5 +1,4 @@
 // ---------- Settings ----------
-const NEW_USER_POSTS = 2;                     // a new member's first posts need a moderator's approval
 const MAX_DEPTH = 3;                          // replies can nest this many levels deep
 const SLIP_LIMIT = 3;                         // bad-word slips allowed in one day before a timeout
 const SLIP_WINDOW = 24 * 60 * 60 * 1000;      // one day
@@ -41,7 +40,7 @@ function randomName(accounts = state.accounts) {
 // Posts, warnings, and timeouts are all saved under the ID, so changing your name changes nothing else.
 function makeAccount(id, name, role = "kid", history = [], avatar = null) {
   avatar = avatar || avatarKeys[Math.floor(Math.random() * avatarKeys.length)];
-  return { id, name, role, history, avatar, lastNameChange: null, approved: role === "kid" ? NEW_USER_POSTS : 0, slips: [], timeoutUntil: 0 };
+  return { id, name, role, history, avatar, lastNameChange: null, slips: [], timeoutUntil: 0 };
 }
 
 const accountOf = id => state.accounts[id] || { id, name: "Former member", role: "kid", history: [], avatar: "lantern" };
@@ -59,7 +58,7 @@ function ensureMyAccount(s) {
   do id = "user_" + Math.floor(10000 + Math.random() * 90000); while (s.accounts[id]);
   localStorage.setItem("pl-user-id", id);
   s.accounts[id] = makeAccount(id, randomName(s.accounts), "kid");
-  s.accounts[id].approved = 0; // brand-new member: first posts need approval
+  s.accounts[id].created = Date.now(); // so new kids don't see notices from before they joined
 }
 
 // ---------- Saved posts ----------
@@ -73,14 +72,14 @@ function makeThread(o) {
     id: o.id || newId(), board: o.board, title: o.title, body: o.body, tag: o.tag || "Question",
     authorId: o.authorId, time: o.time || Date.now(), hearts: o.hearts || [],
     pinned: !!o.pinned, weekly: !!o.weekly, eventId: o.eventId || null,
-    locked: null, hidden: null, removed: null, status: o.status || "live", replies: o.replies || [],
+    locked: null, hidden: null, removed: null, replies: o.replies || [],
   };
 }
 
 function makeReply(o) {
   return {
     id: o.id || newId(), parent: o.parent || null, body: o.body, authorId: o.authorId,
-    time: o.time || Date.now(), hearts: o.hearts || [], verified: !!o.verified, hidden: null, status: o.status || "live",
+    time: o.time || Date.now(), hearts: o.hearts || [], verified: !!o.verified, hidden: null,
   };
 }
 
@@ -99,7 +98,7 @@ function seedState() {
 
   const s = { version: 2, accounts, log: [], threads: [
     makeThread({ board: "announcements", title: "Welcome to Providing Light! Please read 💛", tag: "Announcement", authorId: leader, pinned: true, time: hoursAgo(96),
-      body: "Assalamu alaikum and welcome!\n\nThis is a space to ask questions, share, and support each other. A few things to remember:\n• Stay anonymous. Never share your real name, school, or contact info.\n• Be kind. Bad words get hidden, and bullying is never okay.\n• Your first 2 posts are checked by a moderator.\n• Tap 🚩 if anything feels wrong.\n\nWe're so glad you're here." }),
+      body: "Assalamu alaikum and welcome!\n\nThis is a space to ask questions, share, and support each other. A few things to remember:\n• Stay anonymous. Never share your real name, school, or contact info.\n• Be kind. Bad words get hidden, and bullying is never okay.\n• Tap 🚩 if anything feels wrong.\n\nWe're so glad you're here." }),
     makeThread({ board: "fun", title: "Weekly prompt: What's one good deed you did this week?", tag: "Fun", authorId: leader, pinned: true, weekly: true, time: hoursAgo(30),
       body: "Share something kind you did, big or small. It might inspire someone else! 🌱",
       replies: [
@@ -143,10 +142,11 @@ function seedState() {
 const MAX_CODE_TRIES = 5;                 // wrong codes allowed before joining pauses
 const CODE_TRY_WINDOW = 15 * 60 * 1000;   // 15 minutes
 
-function makeCode() {
+// A new code keeps the day at the front (like SAT-7K4P) so it's easy to tell which program it's for.
+function makeCode(g) {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no look-alikes like O/0 or I/1
-  let code = "";
-  for (let i = 0; i < 8; i++) code += i === 3 ? "-" : chars[Math.floor(Math.random() * chars.length)];
+  let code = g.day.slice(0, 3).toUpperCase() + "-";
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
 
@@ -163,6 +163,15 @@ function seedGroups(s) {
     { id: "group-thu", name: "Thursday Program", icon: "🌙", day: "Thursdays", desc: "The Thursday program's own space to plan, share, and keep talking between meetings.",
       code: "THU-2648", members: ["user_91425"] },
   ];
+  const leaderHello = (g, h) => ({ id: newId(), authorId: MOD_ID, time: hoursAgo(h), hidden: null,
+    text: `Assalamu alaikum, ${g.name}! 👋 This chat is just for our program. Say hi, plan, and keep in touch between meetings.` });
+  for (const g of s.groups) g.chat = [leaderHello(g, 70)];
+  s.groups[0].chat.push(
+    { id: newId(), authorId: "user_31852", time: hoursAgo(5), hidden: null, text: "Is anyone else coming early this Saturday?" },
+    { id: newId(), authorId: "user_48213", time: hoursAgo(4), hidden: null, text: "Me! I'll be there at 10 😄" },
+  );
+  s.groups[2].chat.push({ id: newId(), authorId: "user_55108", time: hoursAgo(8), hidden: null, text: "Don't forget, we're reviewing Al-Asr this week!" });
+
   const welcome = g => makeThread({ board: g.id, title: `Welcome to the ${g.name}! ${g.icon}`, tag: "Announcement", authorId: MOD_ID, pinned: true, time: hoursAgo(80),
     body: `This space is just for kids in the ${g.name}. Use it to plan, share, and keep talking between meetings. Same kindness rules as everywhere else 💛` });
   s.threads.push(
@@ -218,6 +227,13 @@ function loadState() {
     seedGroups(s);
   }
   if (!s.chat) seedChat(s);
+  for (const g of s.groups) g.chat ||= [];
+  s.notices ||= []; // site-wide notices from moderators, like a changed program code
+  // Saves from when new members' posts needed approval: publish anything still waiting.
+  for (const t of s.threads) {
+    delete t.status;
+    for (const r of t.replies) delete r.status;
+  }
   ensureMyAccount(s);
   for (const acc of Object.values(s.accounts)) acc.avatar ||= avatarKeys[Math.floor(Math.random() * avatarKeys.length)];
   return s;
@@ -262,7 +278,6 @@ const popups = {
   hate: { icon: "🛑", title: "That post wasn't shared", text: "Hateful words aren't allowed here, so it was sent to a program leader." },
   "personal info": { icon: "🙈", title: "Let's keep you anonymous", text: "That looked like personal info (like a phone number, email, social media, or where you live), so it wasn't shared. A leader was let know, just to help keep you safe." },
   danger: { icon: "💛", title: "You're not alone", text: "It sounds like you might be going through something really hard. A program leader has been let know and will check in with you. If you need help right now, call or text 988, any time." },
-  pending: { icon: "⏳", title: "Almost there!", text: `Thanks for posting! A new member's first ${NEW_USER_POSTS} posts are checked by a moderator before they go live. After that, you can post freely.` },
   spam: { icon: "✋", title: "No spamming please", text: "That's a lot of messages really fast. Take a breath! You can post again in a minute." },
   reported: { icon: "🚩", title: "Thanks for telling us", text: "A moderator will take a look. You helped keep the community safe." },
 };
@@ -344,19 +359,11 @@ function checkPost(texts, where) {
   return { texts: cleaned, slipped: cleaned.some((t, i) => t !== texts[i]) };
 }
 
-function afterPost(slipped, status) {
+function afterPost(slipped) {
   if (slipped) showPopup(addSlip() ? popups.timeout : popups.mild);
-  else if (status === "pending" && !me().seenPendingNotice) {
-    // Only explain approval the first time. After that, the post's own label is enough.
-    me().seenPendingNotice = true;
-    showPopup(popups.pending);
-  }
   save();
   updateTimeout();
 }
-
-// New members' first posts wait for a moderator.
-const needsApproval = () => !isMod() && me().approved < NEW_USER_POSTS;
 
 // Turns posting off during a timeout and shows a countdown.
 function updateTimeout() {
@@ -497,19 +504,17 @@ const findGroup = id => state.groups.find(g => g.id === id);
 const inGroup = g => isMod() || g.members.includes(me().id);
 const memberCount = g => `${g.members.length} member${g.members.length === 1 ? "" : "s"}`;
 const canSeeBoard = b => !b.group || inGroup(b);
-const liveReplies = t => t.replies.filter(r => r.status === "live" && r.hidden === null);
+const liveReplies = t => t.replies.filter(r => r.hidden === null);
 const isMine = post => post.authorId === me().id;
 
 function canSeeThread(t) {
   const b = findBoard(t.board);
   if (!b || !canSeeBoard(b)) return false; // private group you're not in
   if (t.removed !== null) return true; // shows as a short "removed" note
-  if (t.status === "pending") return isMod() || isMine(t);
   if (t.hidden !== null) return isMod();
   return true;
 }
 
-const canSeeReply = r => r.status === "live" || isMod() || isMine(r);
 
 // The hidden ID and past names, which only moderators can see.
 function modInfo(acc) {
@@ -556,17 +561,8 @@ function reportButton(target, threadId, replyId = "") {
   return `<button class="chip-btn" data-action="report" data-thread="${threadId}" data-reply="${replyId}" title="Report this">🚩 Report</button>`;
 }
 
-// A small, quiet reminder for new members instead of a pop-up every time.
-function approvalNote() {
-  if (!needsApproval()) return "";
-  const left = NEW_USER_POSTS - me().approved;
-  return `<p class="approval-note">⏳ You're new, so a moderator checks your next ${left === 1 ? "post" : `${left} posts`} before ${left === 1 ? "it goes" : "they go"} live.</p>`;
-}
-
 // ---------- Pages ----------
 function toolbarView() {
-  const pending = state.threads.filter(t => t.status === "pending").length +
-    state.threads.reduce((n, t) => n + t.replies.filter(r => r.status === "pending").length, 0);
   return `
     <div class="whoami">
       ${isMod()
@@ -574,7 +570,7 @@ function toolbarView() {
         : `Posting as ${avatar(me())}<strong>${esc(me().name)}</strong> <button class="link-btn" data-action="change-name">Change name</button>`}
     </div>
     <div class="toolbar-right">
-      ${isMod() ? `<a class="mod-link" href="#/mod">🛡️ Moderator panel${pending ? ` <span class="count">${pending}</span>` : ""}</a>` : ""}
+      ${isMod() ? `<a class="mod-link" href="#/mod">🛡️ Moderator panel</a>` : ""}
       ${isMod()
         ? `<button class="chip-btn" data-action="mod-signout">Sign out of moderator</button>`
         : `<a class="mod-link" href="#/join">🛡️ Moderator sign-in</a>`}
@@ -601,6 +597,7 @@ function homeView() {
     <h1 class="page-title">Community</h1>
     <p class="section-intro">Pick a board, start a thread, and help each other out.</p>
     <div class="quick-links">
+      ${state.groups.filter(inGroup).map(g => `<a class="quick-link" href="#/chat/${g.id}">${g.icon} ${esc(g.day.replace(/s$/, ""))} chat <span>Talk with your program</span></a>`).join("")}
       <a class="quick-link" href="#/chat">💬 Help chat <span>Questions about the app</span></a>
       <a class="quick-link" href="#/join">🔑 ${isMod() ? "Program codes" : "Join your program"} <span>Sat · Sun · Wed · Thu</span></a>
     </div>
@@ -650,16 +647,15 @@ function boardView(id) {
   const items = list.map(t => {
     if (t.removed !== null) return `<li class="thread-item removed">🗑️ A thread was removed by a moderator${t.removed ? `: <em>${esc(t.removed)}</em>` : "."}</li>`;
     const count = liveReplies(t).length;
-    const hasVerified = t.replies.some(r => r.verified && r.status === "live" && r.hidden === null);
+    const hasVerified = t.replies.some(r => r.verified && r.hidden === null);
     return `
-      <li class="thread-item ${t.status === "pending" ? "pending" : ""} ${t.hidden !== null ? "is-hidden" : ""}">
+      <li class="thread-item ${t.hidden !== null ? "is-hidden" : ""}">
         <a href="#/thread/${t.id}">
           <div class="chips">
             ${t.pinned ? `<span class="chip-note">📌 Pinned</span>` : ""}
             ${tagChip(t.tag)}
             ${hasVerified ? `<span class="chip-note verified-chip">✅ Verified answer</span>` : ""}
             ${t.locked !== null ? `<span class="chip-note">🔒 Locked</span>` : ""}
-            ${t.status === "pending" ? `<span class="chip-note">⏳ Waiting for approval</span>` : ""}
             ${t.hidden !== null ? `<span class="chip-note">👁️ Hidden from kids</span>` : ""}
           </div>
           <h3>${esc(t.title)}</h3>
@@ -672,6 +668,7 @@ function boardView(id) {
     <a class="back" href="#/">← All boards</a>
     <h1 class="page-title">${b.icon} ${esc(b.name)}</h1>
     <p class="section-intro">${esc(b.desc)}</p>
+    ${b.group ? `<a class="btn btn-primary program-chat-btn" href="#/chat/${b.id}">💬 Open the ${esc(b.name)} chat</a>` : ""}
     ${b.group ? `<p class="group-note">🔒 Private program · ${memberCount(b)}${isMod() ? ` · Code: <span class="code-chip">${esc(b.code)}</span>` : ""}</p>` : ""}
 
     <div class="board-controls">
@@ -690,7 +687,6 @@ function boardView(id) {
         </label>
         <label>Post <textarea name="body" rows="4" maxlength="1000" required placeholder="Share your question or thoughts…"></textarea></label>
         <button class="btn btn-primary" data-post-btn>Post thread</button>
-        ${approvalNote()}
       </form>` : ""}
 
     <ul class="thread-list">
@@ -708,12 +704,10 @@ function threadView(id) {
 
   const b = findBoard(t.board);
   const ev = t.eventId && events.find(e => e.id === t.eventId);
-  const isLive = t.status === "live";
 
   const modTools = isMod() ? `
     <div class="mod-tools">
       <span class="mod-tools-label">🛡️</span>
-      ${t.status === "pending" ? `<button data-action="approve" data-thread="${t.id}">✅ Approve</button><button data-action="reject" data-thread="${t.id}">✖ Reject</button>` : ""}
       <button data-action="pin" data-thread="${t.id}">${t.pinned ? "Unpin" : "📌 Pin"}</button>
       <button data-action="lock" data-thread="${t.id}">${t.locked !== null ? "Unlock" : "🔒 Lock"}</button>
       <button data-action="hide" data-thread="${t.id}">${t.hidden !== null ? "Unhide" : "👁️ Hide"}</button>
@@ -721,13 +715,11 @@ function threadView(id) {
     </div>` : "";
 
   let replyArea;
-  if (!isLive) replyArea = `<p class="chip-note">Replies open once this post is approved.</p>`;
-  else if (t.locked !== null) replyArea = "";
+  if (t.locked !== null) replyArea = "";
   else replyArea = `
     <form class="card composer" data-form="reply" data-thread="${t.id}">
       <label>Add a reply <textarea name="body" rows="3" maxlength="1000" required placeholder="Write something helpful and kind…"></textarea></label>
       <button class="btn btn-primary" data-post-btn>Reply</button>
-      ${approvalNote()}
     </form>`;
 
   return `
@@ -740,7 +732,6 @@ function threadView(id) {
       </div>` : ""}
 
     <article class="card post">
-      ${t.status === "pending" ? `<p class="status-note">⏳ Waiting for a moderator to approve this post.</p>` : ""}
       ${t.hidden !== null ? `<p class="status-note">👁️ Hidden from kids${t.hidden ? `: ${esc(t.hidden)}` : ""}</p>` : ""}
       ${t.locked !== null ? `<p class="status-note">🔒 Locked by a moderator, so no new replies.${t.locked ? ` Note: ${esc(t.locked)}` : ""}</p>` : ""}
       <div class="chips">${t.pinned ? `<span class="chip-note">📌 Pinned</span>` : ""}${tagChip(t.tag)}</div>
@@ -759,27 +750,25 @@ function threadView(id) {
 // Shows replies under a parent, nesting up to MAX_DEPTH levels.
 function repliesView(t, parentId, depth) {
   const list = t.replies
-    .filter(r => r.parent === parentId && canSeeReply(r))
+    .filter(r => r.parent === parentId)
     .sort((a, b) => (b.verified - a.verified) || (a.time - b.time));
 
   return list.map(r => {
     const hiddenForMe = r.hidden !== null && !isMod();
-    const canReply = depth < MAX_DEPTH && t.locked === null && t.status === "live" && r.status === "live" && !hiddenForMe;
+    const canReply = depth < MAX_DEPTH && t.locked === null && !hiddenForMe;
     const modTools = isMod() ? `
       <div class="mod-tools small">
-        ${r.status === "pending" ? `<button data-action="approve" data-thread="${t.id}" data-reply="${r.id}">✅ Approve</button><button data-action="reject" data-thread="${t.id}" data-reply="${r.id}">✖ Reject</button>` : ""}
         <button data-action="hide" data-thread="${t.id}" data-reply="${r.id}">${r.hidden !== null ? "Unhide" : "👁️ Hide"}</button>
         ${t.board === "deen" ? `<button data-action="verify" data-thread="${t.id}" data-reply="${r.id}">${r.verified ? "Remove verified" : "✅ Mark verified"}</button>` : ""}
       </div>` : "";
 
     return `
-      <div class="reply ${r.verified ? "verified" : ""} ${r.status === "pending" ? "pending" : ""}">
+      <div class="reply ${r.verified ? "verified" : ""}">
         ${r.verified ? `<div class="verified-badge">✅ Verified answer</div>` : ""}
         <div class="meta">${author(r.authorId)} · ${timeAgo(r.time)}</div>
         ${hiddenForMe
           ? `<p class="stub">Hidden by a moderator${r.hidden ? `: ${esc(r.hidden)}` : "."}</p>`
           : `<p class="post-body">${esc(r.body)}</p>`}
-        ${r.status === "pending" ? `<p class="status-note">⏳ Waiting for a moderator to approve this reply.</p>` : ""}
         ${r.hidden !== null && isMod() ? `<p class="status-note">👁️ Hidden from kids${r.hidden ? `: ${esc(r.hidden)}` : ""}</p>` : ""}
         ${hiddenForMe ? "" : `
           <div class="actions">
@@ -812,23 +801,6 @@ const logLabels = {
 function modView() {
   if (!isMod()) return `<a class="back" href="#/">← All boards</a><div class="card empty">This page is for moderators. <a href="#/join">🛡️ Sign in with the moderator code</a>.</div>`;
 
-  const pending = [];
-  for (const t of state.threads) {
-    if (t.status === "pending") pending.push({ t, text: t.title, kind: "Thread", authorId: t.authorId });
-    for (const r of t.replies) if (r.status === "pending") pending.push({ t, r, text: r.body, kind: "Reply", authorId: r.authorId });
-  }
-
-  const pendingItems = pending.map(p => `
-    <li class="card">
-      <div class="meta"><strong>${p.kind}</strong> by ${author(p.authorId)} in ${findBoard(p.t.board).name}</div>
-      <p class="post-body">${esc(p.text)}</p>
-      <div class="mod-tools">
-        <button data-action="approve" data-thread="${p.t.id}" data-reply="${p.r ? p.r.id : ""}">✅ Approve</button>
-        <button data-action="reject" data-thread="${p.t.id}" data-reply="${p.r ? p.r.id : ""}">✖ Reject</button>
-        <a href="#/thread/${p.t.id}">View thread</a>
-      </div>
-    </li>`).join("");
-
   const logItems = state.log.map(l => `
     <li class="${l.type === "danger" ? "urgent" : ""}">
       <strong>${logLabels[l.type]}</strong>
@@ -851,7 +823,6 @@ function modView() {
           <div class="meta">
             Past names: ${a.history.length ? a.history.map(h => esc(h.name)).join(", ") : "none"} ·
             Programs: ${state.groups.filter(g => g.members.includes(a.id)).map(g => esc(g.name)).join(", ") || "none"} ·
-            Approved posts: ${Math.min(a.approved, NEW_USER_POSTS) < NEW_USER_POSTS ? `${a.approved} of ${NEW_USER_POSTS} (new member)` : "trusted"} ·
             Slips today: ${a.slips.filter(t => Date.now() - t < SLIP_WINDOW).length} ·
             Safety reports: ${reports} · ${status}
           </div>
@@ -861,10 +832,7 @@ function modView() {
   return `
     <a class="back" href="#/">← All boards</a>
     <h1 class="page-title">🛡️ Moderator panel</h1>
-    <p class="section-intro">New members' posts wait here for approval. Serious safety reports show up right away.</p>
-
-    <h2 class="replies-title">Waiting for approval (${pending.length})</h2>
-    <ul class="pending-list">${pendingItems || `<li class="empty">All caught up! New members' posts will show up here.</li>`}</ul>
+    <p class="section-intro">Serious safety reports show up here right away, along with program codes and members.</p>
 
     <h2 class="replies-title">Safety reports (${state.log.length})</h2>
     <ul class="leader-log">${logItems || `<li class="empty">Nothing yet. Serious posts and repeated slips will show up here.</li>`}</ul>
@@ -904,7 +872,7 @@ function joinView() {
           <p class="meta">${esc(g.day)} · ${memberCount(g)}</p>
           ${isMod()
             ? `<p>Code: <span class="code-chip">${esc(g.code)}</span> <button class="chip-btn" data-action="new-code" data-group="${g.id}">🔄 New code</button></p>`
-            : member ? `<a class="event-link" href="#/board/${g.id}">✅ You're in · Open board →</a>` : `<p class="chip-note">🔒 Locked</p>`}
+            : member ? `<a class="event-link" href="#/board/${g.id}">✅ You're in · Open board →</a> <a class="event-link" href="#/chat/${g.id}">💬 Chat →</a>` : `<p class="chip-note">🔒 Locked</p>`}
         </div>
       </div>`;
   }).join("");
@@ -936,8 +904,21 @@ function joinView() {
       </div>`}`;
 }
 
-function chatView() {
-  const items = state.chat.map(m => {
+function chatRoomName(msg) {
+  const g = state.groups.find(x => x.chat.includes(msg));
+  return g ? `${g.name} chat` : "Help chat";
+}
+
+// roomId: a program's id for that program's chat, or nothing for the help chat.
+function chatView(roomId) {
+  const group = roomId && findGroup(roomId);
+  if (roomId && (!group || !inGroup(group))) {
+    return `
+      <a class="back" href="#/">← All boards</a>
+      <div class="card empty">🔒 This chat is only for kids in that program. <a href="#/join">Join with your program's code</a>.</div>`;
+  }
+  const messages = group ? group.chat : state.chat;
+  const items = messages.map(m => {
     const acc = accountOf(m.authorId);
     const hiddenForMe = m.hidden !== null && !isMod();
     const tools = isMod()
@@ -954,17 +935,34 @@ function chatView() {
   }).join("");
 
   return `
-    <a class="back" href="#/">← All boards</a>
-    <h1 class="page-title">💬 Help chat</h1>
-    <p class="section-intro">Questions about how the app works? Ask here and a program leader will help. Everyone can see this chat.</p>
+    ${group
+      ? `<a class="back" href="#/board/${group.id}">← ${group.icon} ${esc(group.name)} board</a>
+         <h1 class="page-title">${group.icon} ${esc(group.name)} chat</h1>
+         <p class="section-intro">Chat with everyone in the ${esc(group.name)}. Program leaders can see this chat too.</p>`
+      : `<a class="back" href="#/">← All boards</a>
+         <h1 class="page-title">💬 Help chat</h1>
+         <p class="section-intro">Questions about how the app works? Ask here and a program leader will help. Everyone can see this chat.</p>`}
     <div class="chat-box">
-      <div class="chat-messages" id="chat-messages">${items}</div>
-      <form class="chat-form" data-form="chat">
+      <div class="chat-messages" id="chat-messages">${items || `<p class="empty">No messages yet. Say salam! 👋</p>`}</div>
+      <form class="chat-form" data-form="chat" data-room="${group ? group.id : ""}">
         <label for="chat-input" class="visually-hidden">Your message</label>
-        <input id="chat-input" name="body" maxlength="300" autocomplete="off" required placeholder="${isMod() ? "Answer a question…" : "Ask a question about the app…"}">
+        <input id="chat-input" name="body" maxlength="300" autocomplete="off" required placeholder="${group ? "Message your program…" : isMod() ? "Answer a question…" : "Ask a question about the app…"}">
         <button class="btn btn-primary" data-post-btn>Send</button>
       </form>
     </div>`;
+}
+
+// Notices from moderators that this kid hasn't dismissed yet.
+function noticesView() {
+  if (isMod()) return "";
+  const acc = me();
+  return state.notices
+    .filter(n => n.time > (acc.created || 0) && !(acc.seenNotices || []).includes(n.id))
+    .map(n => `
+      <div class="notice-banner" role="status">
+        <span>🔑 ${esc(n.text)}</span>
+        <button class="btn btn-primary" data-action="dismiss-notice" data-notice="${n.id}">Got it</button>
+      </div>`).join("");
 }
 
 // First visit: kids pick their program day and enter its code before seeing the community.
@@ -1005,6 +1003,7 @@ function gateView() {
 
 function render() {
   const [, view, id] = (location.hash.slice(1) || "/").split("/");
+  document.getElementById("notices").innerHTML = noticesView();
   document.getElementById("forum-toolbar").innerHTML = toolbarView();
   const forum = document.getElementById("forum");
   if (needsProgram() && view !== "chat") forum.innerHTML = gateView();
@@ -1012,7 +1011,7 @@ function render() {
   else if (view === "thread") forum.innerHTML = threadView(id);
   else if (view === "mod") forum.innerHTML = modView();
   else if (view === "join") forum.innerHTML = joinView();
-  else if (view === "chat") forum.innerHTML = chatView();
+  else if (view === "chat") forum.innerHTML = chatView(id);
   else forum.innerHTML = homeView();
   document.getElementById("settings-extra").innerHTML = avatarPickerView();
   updateTimeout();
@@ -1030,7 +1029,7 @@ document.addEventListener("click", async e => {
   const t = state.threads.find(x => x.id === threadId);
   const r = t && replyId ? t.replies.find(x => x.id === replyId) : null;
   const target = r || t;
-  const msg = el.dataset.msg && state.chat.find(m => m.id === el.dataset.msg);
+  const msg = el.dataset.msg && [state.chat, ...state.groups.map(g => g.chat)].flat().find(m => m.id === el.dataset.msg);
 
   switch (action) {
     case "heart": {
@@ -1045,14 +1044,6 @@ document.addEventListener("click", async e => {
       break;
     case "reply-to":
       replyingTo = replyingTo === replyId ? null : replyId;
-      break;
-    case "approve":
-      target.status = "live";
-      accountOf(target.authorId).approved++;
-      break;
-    case "reject":
-      if (r) t.replies = t.replies.filter(x => x !== r && x.parent !== r.id);
-      else state.threads = state.threads.filter(x => x !== t);
       break;
     case "pin":
       t.pinned = !t.pinned;
@@ -1104,15 +1095,24 @@ document.addEventListener("click", async e => {
       break;
     case "report-chat":
       msg.reported = true;
-      reportToLeader("reported", `${msg.text} (posted by ${nameOf(msg.authorId)}, ${msg.authorId})`, me().id, "Help chat");
+      reportToLeader("reported", `${msg.text} (posted by ${nameOf(msg.authorId)}, ${msg.authorId})`, me().id, chatRoomName(msg));
       showPopup(popups.reported);
       break;
     case "new-code": {
+      if (!isMod()) return; // only moderators can change codes
       const g = findGroup(el.dataset.group);
-      g.code = makeCode();
+      g.code = makeCode(g);
+      // Tell everyone the code changed, without showing the new code.
+      state.notices.unshift({ id: newId(), groupId: g.id, time: Date.now(),
+        text: `The ${g.name} code was changed by a moderator. Already in the program? You don't need to do anything. New to it? Ask your program leader for the new code.` });
+      showPopup({ icon: "🔑", title: "Code changed", text: `The new ${g.name} code is ${g.code}. Everyone on the site has been notified that it changed. Current members stay in.` });
       break;
     }
+    case "dismiss-notice":
+      (me().seenNotices ||= []).push(el.dataset.notice);
+      break;
     case "remove-member": {
+      if (!isMod()) return;
       const g = findGroup(el.dataset.group);
       g.members = g.members.filter(id => id !== el.dataset.member);
       break;
@@ -1175,21 +1175,20 @@ document.addEventListener("submit", e => {
 
   if (timeLeft() > 0 || hitSpamLimit()) return;
 
-  // Help chat messages skip new-member approval, so anyone can ask for help right away.
   if (form.dataset.form === "chat") {
+    const group = form.dataset.room && findGroup(form.dataset.room);
+    if (form.dataset.room && (!group || !inGroup(group))) return;
     const body = data.get("body").trim();
     if (!body) return;
-    const result = checkPost([body], "Help chat");
+    const result = checkPost([body], group ? `${group.name} chat` : "Help chat");
     if (!result) { save(); render(); return; }
-    state.chat.push({ id: newId(), authorId: me().id, text: result.texts[0], time: Date.now(), hidden: null });
+    (group ? group.chat : state.chat).push({ id: newId(), authorId: me().id, text: result.texts[0], time: Date.now(), hidden: null });
     save();
     render();
     document.getElementById("chat-input").focus();
-    afterPost(result.slipped, "live");
+    afterPost(result.slipped);
     return;
   }
-
-  const status = needsApproval() ? "pending" : "live";
 
   if (form.dataset.form === "thread") {
     const board = findBoard(form.dataset.board);
@@ -1200,12 +1199,12 @@ document.addEventListener("submit", e => {
     const result = checkPost([title, body], board.name);
     if (!result) { save(); render(); return; }
 
-    const t = makeThread({ board: board.id, title: result.texts[0], body: result.texts[1], tag: data.get("tag"), authorId: me().id, status });
+    const t = makeThread({ board: board.id, title: result.texts[0], body: result.texts[1], tag: data.get("tag"), authorId: me().id });
     state.threads.push(t);
     showNewForm = false;
     save();
     location.hash = "#/thread/" + t.id;
-    afterPost(result.slipped, status);
+    afterPost(result.slipped);
   } else {
     const t = state.threads.find(x => x.id === form.dataset.thread);
     const body = data.get("body").trim();
@@ -1214,11 +1213,11 @@ document.addEventListener("submit", e => {
     const result = checkPost([body], findBoard(t.board).name);
     if (!result) { save(); render(); return; }
 
-    t.replies.push(makeReply({ parent: form.dataset.parent || null, body: result.texts[0], authorId: me().id, status }));
+    t.replies.push(makeReply({ parent: form.dataset.parent || null, body: result.texts[0], authorId: me().id }));
     replyingTo = null;
     save();
     render();
-    afterPost(result.slipped, status);
+    afterPost(result.slipped);
   }
 });
 
