@@ -61,8 +61,22 @@
       <label for="note-input" class="visually-hidden">Note</label>
       <textarea id="note-input" maxlength="200" rows="3" placeholder="e.g. Off topic, please start a new thread"></textarea>
       <div class="popup-buttons">
+        <button class="btn btn-ghost" id="note-cancel">Cancel</button>
+        <button class="btn btn-primary" id="note-ok">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="name-dialog" class="popup" aria-labelledby="name-title">
+    <form method="dialog">
+      <div class="popup-icon">🏷️</div>
+      <h3 id="name-title">Pick a new name</h3>
+      <p id="name-preview" class="name-preview"></p>
+      <button type="button" id="shuffle-name" class="btn btn-ghost">🔀 Shuffle</button>
+      <p class="fine">You can change your name once every 30 days. Your old posts will show your new name.</p>
+      <div class="popup-buttons">
         <button class="btn btn-ghost" value="cancel">Cancel</button>
-        <button class="btn btn-primary" value="ok">Save</button>
+        <button class="btn btn-primary" id="name-ok">Use this name</button>
       </div>
     </form>
   </dialog>

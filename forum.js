@@ -1,11 +1,12 @@
 // ---------- Settings ----------
-const NEW_USER_POSTS = 2;                // a new member's first posts need a moderator's approval
-const MAX_DEPTH = 3;                     // replies can nest this many levels deep
-const SLIP_LIMIT = 3;                    // bad-word slips allowed in one day before a timeout
-const SLIP_WINDOW = 24 * 60 * 60 * 1000; // one day
-const TIMEOUT_LENGTH = 10 * 60 * 1000;   // 10 minutes
+const NEW_USER_POSTS = 2;                     // a new member's first posts need a moderator's approval
+const MAX_DEPTH = 3;                          // replies can nest this many levels deep
+const SLIP_LIMIT = 3;                         // bad-word slips allowed in one day before a timeout
+const SLIP_WINDOW = 24 * 60 * 60 * 1000;      // one day
+const TIMEOUT_LENGTH = 10 * 60 * 1000;        // 10 minutes
+const NAME_CHANGE_WAIT = 30 * 24 * 60 * 60 * 1000; // 30 days between name changes
 
-const MOD = { name: "Program Leader", role: "mod" };
+const MOD_ID = "user_00001";
 
 const boards = [
   { id: "announcements", name: "Announcements", icon: "📣", desc: "News from the program team. Only moderators can post here.", modOnly: true },
@@ -19,21 +20,42 @@ const boards = [
 const tags = ["Question", "Advice", "Fun", "Event"];
 const roleBadges = { mod: "⭐ Moderator", teacher: "🎓 Teacher" };
 
-// ---------- Who you are ----------
-const adjectives = ["Brave", "Sunny", "Kind", "Clever", "Calm", "Bright", "Gentle", "Bold", "Happy", "Swift"];
-const animals = ["Owl", "Fox", "Panda", "Otter", "Tiger", "Koala", "Falcon", "Dolphin", "Bunny", "Turtle"];
+// ---------- Safe name lists ----------
+const nameStarts = ["Brave", "Quiet", "Bright", "Golden", "Gentle", "Calm", "Kind", "Swift", "Shining", "Peaceful", "Clever", "Hopeful", "Sunny", "Bold", "Happy", "Steady"];
+const nameEnds = ["Falcon", "River", "Crescent", "Lantern", "Cedar", "Meadow", "Star", "Owl", "Willow", "Harbor", "Comet", "Olive", "Garden", "Dove", "Maple", "Horizon"];
 
-function randomName() {
+function randomName(accounts = state.accounts) {
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-  return `${pick(adjectives)} ${pick(animals)} ${Math.floor(Math.random() * 90 + 10)}`;
+  const taken = new Set(Object.values(accounts).map(a => a.name));
+  let name;
+  do name = `${pick(nameStarts)} ${pick(nameEnds)}`; while (taken.has(name));
+  return name;
 }
 
-let myName = localStorage.getItem("pl-name") || randomName();
-localStorage.setItem("pl-name", myName);
-let viewMode = localStorage.getItem("pl-view") || "kid";
+// ---------- Accounts ----------
+// Every account has a permanent hidden ID. The display name is just one setting on it.
+// Posts, warnings, and timeouts are all saved under the ID, so changing your name changes nothing else.
+function makeAccount(id, name, role = "kid", history = []) {
+  return { id, name, role, history, lastNameChange: null, approved: role === "kid" ? NEW_USER_POSTS : 0, slips: [], timeoutUntil: 0 };
+}
 
+const accountOf = id => state.accounts[id] || { id, name: "Former member", role: "kid", history: [] };
+const nameOf = id => accountOf(id).name;
+
+let viewMode = localStorage.getItem("pl-view") || "kid";
 const isMod = () => viewMode === "mod";
-const me = () => (isMod() ? MOD : { name: myName, role: "kid" });
+const myAccount = () => state.accounts[localStorage.getItem("pl-user-id")];
+const me = () => (isMod() ? state.accounts[MOD_ID] : myAccount());
+
+// In the real version a parent creates the account. In the demo, one is made on your first visit.
+function ensureMyAccount(s) {
+  let id = localStorage.getItem("pl-user-id");
+  if (id && s.accounts[id]) return;
+  do id = "user_" + Math.floor(10000 + Math.random() * 90000); while (s.accounts[id]);
+  localStorage.setItem("pl-user-id", id);
+  s.accounts[id] = makeAccount(id, randomName(s.accounts), "kid");
+  s.accounts[id].approved = 0; // brand-new member: first posts need approval
+}
 
 // ---------- Saved posts ----------
 let nextId = Date.now();
@@ -44,7 +66,7 @@ const fakeHearts = n => Array.from({ length: n }, (_, i) => "member" + i);
 function makeThread(o) {
   return {
     id: o.id || newId(), board: o.board, title: o.title, body: o.body, tag: o.tag || "Question",
-    author: o.author, role: o.role || "kid", time: o.time || Date.now(), hearts: o.hearts || [],
+    authorId: o.authorId, time: o.time || Date.now(), hearts: o.hearts || [],
     pinned: !!o.pinned, weekly: !!o.weekly, eventId: o.eventId || null,
     locked: null, hidden: null, removed: null, status: o.status || "live", replies: o.replies || [],
   };
@@ -52,49 +74,60 @@ function makeThread(o) {
 
 function makeReply(o) {
   return {
-    id: o.id || newId(), parent: o.parent || null, body: o.body, author: o.author, role: o.role || "kid",
+    id: o.id || newId(), parent: o.parent || null, body: o.body, authorId: o.authorId,
     time: o.time || Date.now(), hearts: o.hearts || [], verified: !!o.verified, hidden: null, status: o.status || "live",
   };
 }
 
-// Example posts so the demo doesn't start empty.
+// Example accounts and posts so the demo doesn't start empty.
 function seedState() {
-  const s = { version: 1, users: {}, slips: [], timeoutUntil: 0, log: [], threads: [
-    makeThread({ board: "announcements", title: "Welcome to Providing Light! Please read 💛", tag: "Announcement", author: MOD.name, role: "mod", pinned: true, time: hoursAgo(96),
+  const accounts = {};
+  const add = (id, name, role, history) => (accounts[id] = makeAccount(id, name, role, history), id);
+  const leader = add(MOD_ID, "Program Leader", "mod");
+  const teacher = add("user_00002", "Ustadha Maryam", "teacher");
+  const [river, crescent, willow, meadow, cedar, lantern, harbor, olive, comet, owl, star, dove] = [
+    ["user_31852", "Calm River"], ["user_47019", "Bright Crescent"], ["user_25563", "Gentle Willow"],
+    ["user_60284", "Happy Meadow"], ["user_19937", "Bold Cedar"], ["user_48213", "Golden Lantern", [{ name: "Brave Falcon", changed: hoursAgo(24 * 12) }]],
+    ["user_72640", "Sunny Harbor"], ["user_55108", "Kind Olive"], ["user_83391", "Quiet Comet"],
+    ["user_26774", "Clever Owl"], ["user_91425", "Shining Star"], ["user_38056", "Hopeful Dove"],
+  ].map(([id, name, history]) => add(id, name, "kid", history));
+
+  const s = { version: 2, accounts, log: [], threads: [
+    makeThread({ board: "announcements", title: "Welcome to Providing Light! Please read 💛", tag: "Announcement", authorId: leader, pinned: true, time: hoursAgo(96),
       body: "Assalamu alaikum and welcome!\n\nThis is a space to ask questions, share, and support each other. A few things to remember:\n• Stay anonymous. Never share your real name, school, or contact info.\n• Be kind. Bad words get hidden, and bullying is never okay.\n• Your first 2 posts are checked by a moderator.\n• Tap 🚩 if anything feels wrong.\n\nWe're so glad you're here." }),
-    makeThread({ board: "fun", title: "Weekly prompt: What's one good deed you did this week?", tag: "Fun", author: MOD.name, role: "mod", pinned: true, weekly: true, time: hoursAgo(30),
+    makeThread({ board: "fun", title: "Weekly prompt: What's one good deed you did this week?", tag: "Fun", authorId: leader, pinned: true, weekly: true, time: hoursAgo(30),
       body: "Share something kind you did, big or small. It might inspire someone else! 🌱",
       replies: [
-        makeReply({ body: "I helped my little brother with his reading homework!", author: "Calm Otter 31", time: hoursAgo(20), hearts: fakeHearts(4) }),
-        makeReply({ body: "I made dua for my friend who was sick 🤲", author: "Bright Falcon 77", time: hoursAgo(8), hearts: fakeHearts(3) }),
+        makeReply({ body: "I helped my little brother with his reading homework!", authorId: river, time: hoursAgo(20), hearts: fakeHearts(4) }),
+        makeReply({ body: "I made dua for my friend who was sick 🤲", authorId: crescent, time: hoursAgo(8), hearts: fakeHearts(3) }),
       ] }),
-    makeThread({ board: "deen", title: "Read first: how verified answers work", tag: "Announcement", author: MOD.name, role: "mod", pinned: true, time: hoursAgo(90),
+    makeThread({ board: "deen", title: "Read first: how verified answers work", tag: "Announcement", authorId: leader, pinned: true, time: hoursAgo(90),
       body: "When a trusted teacher or imam answers a question, their reply gets a ✅ Verified answer badge and moves to the top. Other replies are welcome too, but look for the badge when you want an answer you can trust." }),
-    makeThread({ board: "deen", title: "Is it okay to pray in English if I don't know the Arabic yet?", author: "Gentle Koala 18", time: hoursAgo(26), hearts: fakeHearts(5),
+    makeThread({ board: "deen", title: "Is it okay to pray in English if I don't know the Arabic yet?", authorId: willow, time: hoursAgo(26), hearts: fakeHearts(5),
       body: "I'm still learning the Arabic and I get nervous that I'm doing it wrong. Can I just say it in English for now?",
       replies: [
-        makeReply({ body: "I'm wondering this too!", author: "Happy Bunny 56", time: hoursAgo(24), hearts: fakeHearts(1) }),
-        makeReply({ body: "Such a good question, and it's normal to feel nervous! The recited parts of salah, like Al-Fatiha, are said in Arabic, and it's okay to learn them slowly, one step at a time. Your own duas can be in any language. Allah understands every language. 💛", author: "Ustadha Maryam", role: "teacher", time: hoursAgo(20), hearts: fakeHearts(9), verified: true }),
+        makeReply({ body: "I'm wondering this too!", authorId: meadow, time: hoursAgo(24), hearts: fakeHearts(1) }),
+        makeReply({ body: "Such a good question, and it's normal to feel nervous! The recited parts of salah, like Al-Fatiha, are said in Arabic, and it's okay to learn them slowly, one step at a time. Your own duas can be in any language. Allah understands every language. 💛", authorId: teacher, time: hoursAgo(20), hearts: fakeHearts(9), verified: true }),
       ] }),
-    makeThread({ board: "deen", title: "How do I keep up with Fajr on school days?", author: "Bold Tiger 52", time: hoursAgo(5),
+    makeThread({ board: "deen", title: "How do I keep up with Fajr on school days?", authorId: cedar, time: hoursAgo(5),
       body: "I keep sleeping through my alarm. Any tips?" }),
-    makeThread({ board: "school", title: "Tips for not stressing about exams?", tag: "Advice", author: "Swift Dolphin 64", time: hoursAgo(14), hearts: fakeHearts(3),
+    makeThread({ board: "school", title: "Tips for not stressing about exams?", tag: "Advice", authorId: lantern, time: hoursAgo(14), hearts: fakeHearts(3),
       body: "I have three tests next week and I'm freaking out a little 😅",
       replies: [
-        makeReply({ id: "seed-study", body: "Study in short chunks: 25 minutes, then a 5 minute break. It really helps me!", author: "Sunny Owl 23", time: hoursAgo(12), hearts: fakeHearts(6) }),
-        makeReply({ parent: "seed-study", body: "Thanks, I'll try that!", author: "Swift Dolphin 64", time: hoursAgo(11) }),
+        makeReply({ id: "seed-study", body: "Study in short chunks: 25 minutes, then a 5 minute break. It really helps me!", authorId: harbor, time: hoursAgo(12), hearts: fakeHearts(6) }),
+        makeReply({ parent: "seed-study", body: "Thanks, I'll try that!", authorId: lantern, time: hoursAgo(11) }),
       ] }),
-    makeThread({ board: "books", title: "What surah are you memorizing right now?", author: "Kind Panda 40", time: hoursAgo(40), hearts: fakeHearts(2),
+    makeThread({ board: "books", title: "What surah are you memorizing right now?", authorId: olive, time: hoursAgo(40), hearts: fakeHearts(2),
       body: "I just finished Surah Al-Kahf's first 10 ayat!",
-      replies: [makeReply({ body: "Al-Mulk! It's long but I'm halfway 😄", author: "Calm Koala 88", time: hoursAgo(33), hearts: fakeHearts(2) })] }),
-    makeThread({ board: "fun", title: "Riddle: What has keys but can't open locks?", tag: "Fun", author: "Clever Fox 11", time: hoursAgo(9), hearts: fakeHearts(4),
+      replies: [makeReply({ body: "Al-Mulk! It's long but I'm halfway 😄", authorId: comet, time: hoursAgo(33), hearts: fakeHearts(2) })] }),
+    makeThread({ board: "fun", title: "Riddle: What has keys but can't open locks?", tag: "Fun", authorId: owl, time: hoursAgo(9), hearts: fakeHearts(4),
       body: "Bet you can't get it 😏",
-      replies: [makeReply({ body: "A piano! 🎹", author: "Bright Turtle 29", time: hoursAgo(7), hearts: fakeHearts(2) })] }),
+      replies: [makeReply({ body: "A piano! 🎹", authorId: star, time: hoursAgo(7), hearts: fakeHearts(2) })] }),
   ] };
 
   ensureEventThreads(s);
   const gameNight = s.threads.find(t => t.id === "event-game-night");
-  if (gameNight) gameNight.replies.push(makeReply({ body: "Can we play Uno? 🃏", author: "Happy Falcon 15", time: hoursAgo(3), hearts: fakeHearts(3) }));
+  if (gameNight) gameNight.replies.push(makeReply({ body: "Can we play Uno? 🃏", authorId: dove, time: hoursAgo(3), hearts: fakeHearts(3) }));
   return s;
 }
 
@@ -103,25 +136,28 @@ function ensureEventThreads(s) {
   for (const e of events) {
     const id = "event-" + e.id;
     if (s.threads.some(t => t.id === id)) continue;
-    s.threads.push(makeThread({ id, board: "events", eventId: e.id, tag: "Event", author: MOD.name, role: "mod", time: hoursAgo(48),
+    s.threads.push(makeThread({ id, board: "events", eventId: e.id, tag: "Event", authorId: MOD_ID, time: hoursAgo(48),
       title: `${e.title} (${formatEventDate(e)})`,
       body: `Talk about ${e.title} here, before and after! Questions, ideas, who's coming… 📅` }));
   }
 }
 
+let state;
+
 function loadState() {
+  let s;
   try {
-    const saved = JSON.parse(localStorage.getItem("pl-forum"));
-    if (saved && saved.version === 1) {
-      ensureEventThreads(saved);
-      return saved;
-    }
+    s = JSON.parse(localStorage.getItem("pl-forum"));
   } catch {}
-  return seedState();
+  if (!s || s.version !== 2) s = seedState();
+  ensureEventThreads(s);
+  ensureMyAccount(s);
+  return s;
 }
 
-let state = loadState();
+state = loadState();
 const save = () => localStorage.setItem("pl-forum", JSON.stringify(state));
+save();
 
 // Things that only matter while the page is open.
 let sortMode = "new";
@@ -175,31 +211,35 @@ function askNote(title) {
   const input = document.getElementById("note-input");
   document.getElementById("note-title").textContent = title;
   input.value = "";
-  dialog.returnValue = "";
   dialog.showModal();
   return new Promise(resolve => {
-    dialog.onclose = () => resolve(dialog.returnValue === "ok" ? input.value.trim() : null);
+    const finish = value => { dialog.close(); resolve(value); };
+    document.getElementById("note-ok").onclick = e => { e.preventDefault(); finish(input.value.trim()); };
+    document.getElementById("note-cancel").onclick = e => { e.preventDefault(); finish(null); };
+    dialog.oncancel = () => resolve(null); // pressing Escape
   });
 }
 
-function reportToLeader(type, text, from = me().name, where = "") {
-  state.log.unshift({ type, text, from, where, time: Date.now() });
+function reportToLeader(type, text, fromId = me().id, where = "") {
+  state.log.unshift({ type, text, fromId, where, time: Date.now() });
 }
 
 // Step 3: repeated slips. 3 in a day = a 10-minute timeout and a quiet note to the leader.
+// Slips and timeouts belong to the account ID, so a new name doesn't reset them.
 function addSlip() {
+  const acc = me();
   const now = Date.now();
-  state.slips = state.slips.filter(t => now - t < SLIP_WINDOW);
-  state.slips.push(now);
-  if (state.slips.length < SLIP_LIMIT) return false;
+  acc.slips = acc.slips.filter(t => now - t < SLIP_WINDOW);
+  acc.slips.push(now);
+  if (acc.slips.length < SLIP_LIMIT) return false;
 
-  state.slips = [];
-  state.timeoutUntil = now + TIMEOUT_LENGTH;
+  acc.slips = [];
+  acc.timeoutUntil = now + TIMEOUT_LENGTH;
   reportToLeader("timeout", `${SLIP_LIMIT} slips in one day. Paused from posting for 10 minutes.`);
   return true;
 }
 
-const timeLeft = () => state.timeoutUntil - Date.now();
+const timeLeft = () => (isMod() ? 0 : me().timeoutUntil - Date.now());
 
 // Runs every post through the safety steps. Gives back the cleaned text, or null if it was blocked.
 function checkPost(texts, where) {
@@ -207,7 +247,7 @@ function checkPost(texts, where) {
 
   const serious = findSerious(texts.join(" "));
   if (serious) {
-    reportToLeader(serious, texts.join(" — "), myName, where);
+    reportToLeader(serious, texts.join(" — "), me().id, where);
     const timedOut = (serious === "bullying" || serious === "hate") && addSlip();
     showPopup(timedOut ? popups.timeout : popups[serious]);
     return null;
@@ -225,15 +265,14 @@ function afterPost(slipped, status) {
 }
 
 // New members' first posts wait for a moderator.
-const needsApproval = () => !isMod() && (state.users[myName] || 0) < NEW_USER_POSTS;
+const needsApproval = () => !isMod() && me().approved < NEW_USER_POSTS;
 
 // Turns posting off during a timeout and shows a countdown.
 function updateTimeout() {
   const banner = document.getElementById("timeout-banner");
   const left = timeLeft();
-  const paused = left > 0 && !isMod();
-  document.querySelectorAll("[data-post-btn]").forEach(b => (b.disabled = paused));
-  if (paused) {
+  document.querySelectorAll("[data-post-btn]").forEach(b => (b.disabled = left > 0));
+  if (left > 0) {
     const min = Math.floor(left / 60000);
     const sec = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
     banner.textContent = `⏸️ Taking a short break. You can post again in ${min}:${sec}`;
@@ -241,6 +280,41 @@ function updateTimeout() {
     banner.textContent = "";
   }
 }
+
+// ---------- Changing your name ----------
+function nextNameChange(acc) {
+  return acc.lastNameChange ? acc.lastNameChange + NAME_CHANGE_WAIT : 0;
+}
+
+let nameCandidate = "";
+
+function openNameDialog() {
+  const acc = myAccount();
+  if (nextNameChange(acc) > Date.now()) {
+    const when = new Date(nextNameChange(acc)).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    showPopup({ icon: "🗓️", title: "Not just yet", text: `You can change your name once every 30 days. You can pick a new one on ${when}.` });
+    return;
+  }
+  nameCandidate = randomName();
+  document.getElementById("name-preview").textContent = nameCandidate;
+  document.getElementById("name-dialog").showModal();
+}
+
+document.getElementById("shuffle-name").addEventListener("click", () => {
+  nameCandidate = randomName();
+  document.getElementById("name-preview").textContent = nameCandidate;
+});
+
+document.getElementById("name-ok").addEventListener("click", e => {
+  e.preventDefault();
+  document.getElementById("name-dialog").close();
+  const acc = myAccount();
+  acc.history.push({ name: acc.name, changed: Date.now() });
+  acc.name = nameCandidate;
+  acc.lastNameChange = Date.now();
+  save();
+  render();
+});
 
 // ---------- Helpers ----------
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -255,20 +329,29 @@ function timeAgo(t) {
 }
 
 const findBoard = id => boards.find(b => b.id === id);
-const liveReplies = t => t.replies.filter(r => r.status === "live" && !r.hidden);
+const liveReplies = t => t.replies.filter(r => r.status === "live" && r.hidden === null);
+const isMine = post => post.authorId === me().id;
 
 function canSeeThread(t) {
-  if (t.removed) return true; // shows as a short "removed" note
-  if (t.status === "pending") return isMod() || t.author === me().name;
-  if (t.hidden) return isMod();
+  if (t.removed !== null) return true; // shows as a short "removed" note
+  if (t.status === "pending") return isMod() || isMine(t);
+  if (t.hidden !== null) return isMod();
   return true;
 }
 
-const canSeeReply = r => r.status === "live" || isMod() || r.author === me().name;
+const canSeeReply = r => r.status === "live" || isMod() || isMine(r);
 
-function author(name, role) {
-  const badge = roleBadges[role] ? ` <span class="role-badge role-${role}">${roleBadges[role]}</span>` : "";
-  return `<strong>${esc(name)}</strong>${badge}`;
+// The hidden ID and past names, which only moderators can see.
+function modInfo(acc) {
+  if (!isMod() || acc.role !== "kid") return "";
+  const past = acc.history.length ? ` · was ${acc.history.map(h => esc(h.name)).join(", ")}` : "";
+  return ` <span class="mod-id" title="Only moderators see this">${esc(acc.id)}${past}</span>`;
+}
+
+function author(id) {
+  const acc = accountOf(id);
+  const badge = roleBadges[acc.role] ? ` <span class="role-badge role-${acc.role}">${roleBadges[acc.role]}</span>` : "";
+  return `<strong>${esc(acc.name)}</strong>${badge}${modInfo(acc)}`;
 }
 
 function tagChip(tag) {
@@ -276,12 +359,12 @@ function tagChip(tag) {
 }
 
 function heartButton(target, threadId, replyId = "") {
-  const mine = target.hearts.includes(me().name);
+  const mine = target.hearts.includes(me().id);
   return `<button class="chip-btn ${mine ? "on" : ""}" data-action="heart" data-thread="${threadId}" data-reply="${replyId}" aria-pressed="${mine}">❤️ ${target.hearts.length} Helpful</button>`;
 }
 
 function reportButton(target, threadId, replyId = "") {
-  if (isMod() || target.author === me().name || target.role !== "kid") return "";
+  if (isMod() || isMine(target) || accountOf(target.authorId).role !== "kid") return "";
   if (target.reported) return `<span class="chip-note">🚩 Reported</span>`;
   return `<button class="chip-btn" data-action="report" data-thread="${threadId}" data-reply="${replyId}" title="Report this">🚩 Report</button>`;
 }
@@ -293,8 +376,8 @@ function toolbarView() {
   return `
     <div class="whoami">
       ${isMod()
-        ? `Posting as ${author(MOD.name, "mod")}`
-        : `Posting as <strong>${esc(myName)}</strong> <button class="link-btn" data-action="new-name">(new name)</button>`}
+        ? `Posting as ${author(MOD_ID)}`
+        : `Posting as <strong>${esc(me().name)}</strong> <button class="link-btn" data-action="change-name">Change name</button>`}
     </div>
     <div class="toolbar-right">
       ${isMod() ? `<a class="mod-link" href="#/mod">🛡️ Moderator panel${pending ? ` <span class="count">${pending}</span>` : ""}</a>` : ""}
@@ -307,9 +390,9 @@ function toolbarView() {
 }
 
 function homeView() {
-  const weekly = state.threads.find(t => t.weekly && !t.removed && !t.hidden);
+  const weekly = state.threads.find(t => t.weekly && t.removed === null && t.hidden === null);
   const boardCards = boards.map(b => {
-    const count = state.threads.filter(t => t.board === b.id && canSeeThread(t) && !t.removed).length;
+    const count = state.threads.filter(t => t.board === b.id && canSeeThread(t) && t.removed === null).length;
     return `
       <a class="board-card" href="#/board/${b.id}">
         <span class="board-icon">${b.icon}</span>
@@ -339,7 +422,7 @@ function boardView(id) {
 
   let list = state.threads.filter(t => t.board === id && canSeeThread(t));
   const popularity = t => t.hearts.length + liveReplies(t).length * 2;
-  if (sortMode === "unanswered") list = list.filter(t => !t.removed && !t.pinned && liveReplies(t).length === 0);
+  if (sortMode === "unanswered") list = list.filter(t => t.removed === null && !t.pinned && liveReplies(t).length === 0);
   list.sort((a, c) => sortMode === "popular" ? popularity(c) - popularity(a) : c.time - a.time);
   if (sortMode !== "unanswered") list.sort((a, c) => c.pinned - a.pinned);
 
@@ -347,11 +430,11 @@ function boardView(id) {
   const sorts = [["new", "🕒 New"], ["popular", "🔥 Popular"], ["unanswered", "🙋 Unanswered"]];
 
   const items = list.map(t => {
-    if (t.removed) return `<li class="thread-item removed">🗑️ A thread was removed by a moderator${t.removed ? `: <em>${esc(t.removed)}</em>` : "."}</li>`;
+    if (t.removed !== null) return `<li class="thread-item removed">🗑️ A thread was removed by a moderator${t.removed ? `: <em>${esc(t.removed)}</em>` : "."}</li>`;
     const count = liveReplies(t).length;
-    const hasVerified = t.replies.some(r => r.verified && r.status === "live" && !r.hidden);
+    const hasVerified = t.replies.some(r => r.verified && r.status === "live" && r.hidden === null);
     return `
-      <li class="thread-item ${t.status === "pending" ? "pending" : ""} ${t.hidden ? "is-hidden" : ""}">
+      <li class="thread-item ${t.status === "pending" ? "pending" : ""} ${t.hidden !== null ? "is-hidden" : ""}">
         <a href="#/thread/${t.id}">
           <div class="chips">
             ${t.pinned ? `<span class="chip-note">📌 Pinned</span>` : ""}
@@ -362,7 +445,7 @@ function boardView(id) {
             ${t.hidden !== null ? `<span class="chip-note">👁️ Hidden from kids</span>` : ""}
           </div>
           <h3>${esc(t.title)}</h3>
-          <div class="meta">${esc(t.author)} · ${timeAgo(t.time)} · 💬 ${count} · ❤️ ${t.hearts.length}</div>
+          <div class="meta">${esc(nameOf(t.authorId))} · ${timeAgo(t.time)} · 💬 ${count} · ❤️ ${t.hearts.length}</div>
         </a>
       </li>`;
   }).join("");
@@ -397,10 +480,10 @@ function boardView(id) {
 
 function threadView(id) {
   const t = state.threads.find(x => x.id === id);
-  if (!t || !canSeeThread(t) || t.removed) {
+  if (!t || !canSeeThread(t) || t.removed !== null) {
     return `
       <a class="back" href="#/">← All boards</a>
-      <div class="card empty">${t && t.removed ? `🗑️ This thread was removed by a moderator${t.removed ? `: <em>${esc(t.removed)}</em>` : "."}` : "This thread isn't available."}</div>`;
+      <div class="card empty">${t && t.removed !== null ? `🗑️ This thread was removed by a moderator${t.removed ? `: <em>${esc(t.removed)}</em>` : "."}` : "This thread isn't available."}</div>`;
   }
 
   const b = findBoard(t.board);
@@ -438,10 +521,10 @@ function threadView(id) {
     <article class="card post">
       ${t.status === "pending" ? `<p class="status-note">⏳ Waiting for a moderator to approve this post.</p>` : ""}
       ${t.hidden !== null ? `<p class="status-note">👁️ Hidden from kids${t.hidden ? `: ${esc(t.hidden)}` : ""}</p>` : ""}
-      ${t.locked !== null ? `<p class="status-note">🔒 Locked by a moderator${t.locked ? `: ${esc(t.locked)}` : ""}. No new replies.</p>` : ""}
+      ${t.locked !== null ? `<p class="status-note">🔒 Locked by a moderator, so no new replies.${t.locked ? ` Note: ${esc(t.locked)}` : ""}</p>` : ""}
       <div class="chips">${t.pinned ? `<span class="chip-note">📌 Pinned</span>` : ""}${tagChip(t.tag)}</div>
       <h1 class="post-title">${esc(t.title)}</h1>
-      <div class="meta">${author(t.author, t.role)} · ${timeAgo(t.time)}</div>
+      <div class="meta">${author(t.authorId)} · ${timeAgo(t.time)}</div>
       <p class="post-body">${esc(t.body)}</p>
       <div class="actions">${heartButton(t, t.id)}${reportButton(t, t.id)}</div>
       ${modTools}
@@ -471,7 +554,7 @@ function repliesView(t, parentId, depth) {
     return `
       <div class="reply ${r.verified ? "verified" : ""} ${r.status === "pending" ? "pending" : ""}">
         ${r.verified ? `<div class="verified-badge">✅ Verified answer</div>` : ""}
-        <div class="meta">${author(r.author, r.role)} · ${timeAgo(r.time)}</div>
+        <div class="meta">${author(r.authorId)} · ${timeAgo(r.time)}</div>
         ${hiddenForMe
           ? `<p class="stub">Hidden by a moderator${r.hidden ? `: ${esc(r.hidden)}` : "."}</p>`
           : `<p class="post-body">${esc(r.body)}</p>`}
@@ -486,8 +569,8 @@ function repliesView(t, parentId, depth) {
         ${modTools}
         ${replyingTo === r.id ? `
           <form class="composer inline" data-form="reply" data-thread="${t.id}" data-parent="${r.id}">
-            <label class="visually-hidden" for="reply-${r.id}">Reply to ${esc(r.author)}</label>
-            <textarea id="reply-${r.id}" name="body" rows="2" maxlength="1000" required placeholder="Reply to ${esc(r.author)}…"></textarea>
+            <label class="visually-hidden" for="reply-${r.id}">Reply to ${esc(nameOf(r.authorId))}</label>
+            <textarea id="reply-${r.id}" name="body" rows="2" maxlength="1000" required placeholder="Reply to ${esc(nameOf(r.authorId))}…"></textarea>
             <button class="btn btn-primary" data-post-btn>Reply</button>
           </form>` : ""}
         <div class="children">${repliesView(t, r.id, depth + 1)}</div>
@@ -509,13 +592,13 @@ function modView() {
 
   const pending = [];
   for (const t of state.threads) {
-    if (t.status === "pending") pending.push({ t, text: t.title, kind: "Thread", author: t.author });
-    for (const r of t.replies) if (r.status === "pending") pending.push({ t, r, text: r.body, kind: "Reply", author: r.author });
+    if (t.status === "pending") pending.push({ t, text: t.title, kind: "Thread", authorId: t.authorId });
+    for (const r of t.replies) if (r.status === "pending") pending.push({ t, r, text: r.body, kind: "Reply", authorId: r.authorId });
   }
 
   const pendingItems = pending.map(p => `
     <li class="card">
-      <div class="meta"><strong>${p.kind}</strong> by ${esc(p.author)} in ${findBoard(p.t.board).name}</div>
+      <div class="meta"><strong>${p.kind}</strong> by ${author(p.authorId)} in ${findBoard(p.t.board).name}</div>
       <p class="post-body">${esc(p.text)}</p>
       <div class="mod-tools">
         <button data-action="approve" data-thread="${p.t.id}" data-reply="${p.r ? p.r.id : ""}">✅ Approve</button>
@@ -527,9 +610,30 @@ function modView() {
   const logItems = state.log.map(l => `
     <li class="${l.type === "danger" ? "urgent" : ""}">
       <strong>${logLabels[l.type]}</strong>
-      <span>${esc(l.from)}${l.where ? ` · ${esc(l.where)}` : ""} · ${timeAgo(l.time)}</span>
+      <span>${author(l.fromId)}${l.where ? ` · ${esc(l.where)}` : ""} · ${timeAgo(l.time)}</span>
       <p>${esc(l.text)}</p>
     </li>`).join("");
+
+  // Everything here is looked up by hidden ID, so it follows a member through name changes.
+  const myId = myAccount().id;
+  const members = Object.values(state.accounts)
+    .filter(a => a.role === "kid")
+    .sort((a, b) => (b.id === myId) - (a.id === myId) || a.name.localeCompare(b.name))
+    .map(a => {
+      const reports = state.log.filter(l => l.fromId === a.id && l.type !== "reported").length;
+      const left = a.timeoutUntil - Date.now();
+      const status = left > 0 ? `⏸️ Paused, ${Math.ceil(left / 60000)} min left` : "Active";
+      return `
+        <li class="card member">
+          <div><strong>${esc(a.name)}</strong> <span class="mod-id">${esc(a.id)}</span>${a.id === myId ? ` <span class="chip-note">(you, in Kid view)</span>` : ""}</div>
+          <div class="meta">
+            Past names: ${a.history.length ? a.history.map(h => esc(h.name)).join(", ") : "none"} ·
+            Approved posts: ${Math.min(a.approved, NEW_USER_POSTS) < NEW_USER_POSTS ? `${a.approved} of ${NEW_USER_POSTS} (new member)` : "trusted"} ·
+            Slips today: ${a.slips.filter(t => Date.now() - t < SLIP_WINDOW).length} ·
+            Safety reports: ${reports} · ${status}
+          </div>
+        </li>`;
+    }).join("");
 
   return `
     <a class="back" href="#/">← All boards</a>
@@ -541,6 +645,10 @@ function modView() {
 
     <h2 class="replies-title">Safety reports (${state.log.length})</h2>
     <ul class="leader-log">${logItems || `<li class="empty">Nothing yet. Try posting a bad word or a phone number in Kid view.</li>`}</ul>
+
+    <h2 class="replies-title">Members</h2>
+    <p class="section-intro">Each member has a hidden ID that never changes. Names, warnings, and timeouts all stay attached to it.</p>
+    <ul class="pending-list">${members}</ul>
 
     <button class="btn btn-ghost" data-action="reset">Reset demo</button>`;
 }
@@ -567,13 +675,13 @@ document.addEventListener("click", async e => {
 
   switch (action) {
     case "heart": {
-      const i = target.hearts.indexOf(me().name);
-      i === -1 ? target.hearts.push(me().name) : target.hearts.splice(i, 1);
+      const i = target.hearts.indexOf(me().id);
+      i === -1 ? target.hearts.push(me().id) : target.hearts.splice(i, 1);
       break;
     }
     case "report":
       target.reported = true;
-      reportToLeader("reported", `${r ? r.body : t.title} (posted by ${target.author})`, myName, findBoard(t.board).name);
+      reportToLeader("reported", `${r ? r.body : t.title} (posted by ${nameOf(target.authorId)}, ${target.authorId})`, me().id, findBoard(t.board).name);
       showPopup(popups.reported);
       break;
     case "reply-to":
@@ -581,7 +689,7 @@ document.addEventListener("click", async e => {
       break;
     case "approve":
       target.status = "live";
-      state.users[target.author] = (state.users[target.author] || 0) + 1;
+      accountOf(target.authorId).approved++;
       break;
     case "reject":
       if (r) t.replies = t.replies.filter(x => x !== r && x.parent !== r.id);
@@ -624,12 +732,12 @@ document.addEventListener("click", async e => {
       localStorage.setItem("pl-view", viewMode);
       replyingTo = null;
       break;
-    case "new-name":
-      myName = randomName();
-      localStorage.setItem("pl-name", myName);
-      break;
+    case "change-name":
+      openNameDialog();
+      return;
     case "reset":
       localStorage.removeItem("pl-forum");
+      localStorage.removeItem("pl-user-id");
       state = loadState();
       break;
   }
@@ -642,7 +750,7 @@ document.addEventListener("submit", e => {
   const form = e.target.closest("[data-form]");
   if (!form) return;
   e.preventDefault();
-  if (timeLeft() > 0 && !isMod()) return;
+  if (timeLeft() > 0) return;
 
   const data = new FormData(form);
   const status = needsApproval() ? "pending" : "live";
@@ -656,7 +764,7 @@ document.addEventListener("submit", e => {
     const result = checkPost([title, body], board.name);
     if (!result) { save(); render(); return; }
 
-    const t = makeThread({ board: board.id, title: result.texts[0], body: result.texts[1], tag: data.get("tag"), author: me().name, role: me().role, status });
+    const t = makeThread({ board: board.id, title: result.texts[0], body: result.texts[1], tag: data.get("tag"), authorId: me().id, status });
     state.threads.push(t);
     showNewForm = false;
     save();
@@ -670,7 +778,7 @@ document.addEventListener("submit", e => {
     const result = checkPost([body], findBoard(t.board).name);
     if (!result) { save(); render(); return; }
 
-    t.replies.push(makeReply({ parent: form.dataset.parent || null, body: result.texts[0], author: me().name, role: me().role, status }));
+    t.replies.push(makeReply({ parent: form.dataset.parent || null, body: result.texts[0], authorId: me().id, status }));
     replyingTo = null;
     save();
     render();
