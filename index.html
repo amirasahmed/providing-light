@@ -4,31 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Providing Light</title>
-  <meta name="description" content="A safe, anonymous space for youth ages 11–17 to connect, chat, and find upcoming events.">
+  <meta name="description" content="A safe, anonymous community for youth ages 11–17 to ask questions, share, and find upcoming events.">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="demo-banner">🧪 <strong>Demo version</strong>, built for a hackathon. Chat messages are pretend and only stay on this device.</div>
+  <div class="demo-banner">🧪 <strong>Demo version</strong>, built for a hackathon. Posts are pretend and only stay on this device.</div>
   <header class="site-header">
-    <a href="#top" class="logo"><span class="logo-sun" aria-hidden="true"></span>Providing Light</a>
+    <a href="index.html" class="logo">
+      <svg class="lantern" viewBox="0 0 32 40" aria-hidden="true">
+        <circle class="frame-line" cx="16" cy="4" r="2.6"/>
+        <path class="frame" d="M8.5 11.5 L16 6.5 L23.5 11.5 Z"/>
+        <rect class="frame" x="7.5" y="11" width="17" height="2.6" rx="1.2"/>
+        <path class="glass" d="M10 13.6 H22 L23.4 29.4 H8.6 Z"/>
+        <path class="pane" d="M13.5 13.6 L13 29.4 M18.5 13.6 L19 29.4"/>
+        <path class="flame" d="M16 17.5 C18.6 20.5 18.8 23 18.2 24.6 C17.7 26 16.9 26.6 16 26.6 C15.1 26.6 14.3 26 13.8 24.6 C13.2 23 13.4 20.5 16 17.5 Z"/>
+        <rect class="frame" x="6.5" y="29.2" width="19" height="3" rx="1.3"/>
+        <rect class="frame" x="10" y="32.2" width="12" height="2.4" rx="1"/>
+      </svg>
+      Providing Light
+    </a>
     <nav>
       <a href="#events">Events</a>
-      <a href="#chat">Chat</a>
+      <a href="community.html">Community</a>
       <a href="#rules">Safety</a>
     </nav>
   </header>
 
   <main id="top">
     <section class="hero">
-      <h1>A safe place to talk, share, and belong.</h1>
-      <p>For ages 11–17. Chat anonymously with other youth or privately with a program leader. No real names, no pressure.</p>
+      <h1>A safe place to ask, share, and belong.</h1>
+      <p>For ages 11–17. Join anonymous discussion boards about faith, school, books, and fun. No real names, no pressure.</p>
       <div class="hero-buttons">
-        <a href="#chat" class="btn btn-primary">Start chatting</a>
+        <a href="community.html" class="btn btn-primary">Join the community</a>
         <a href="#events" class="btn btn-ghost">See events</a>
       </div>
-      <p class="hero-note">🛡️ Every chat is watched over by a trusted program leader.</p>
+      <p class="hero-note">🛡️ Every board is watched over by trusted program leaders.</p>
     </section>
 
     <section id="events" class="section">
@@ -37,53 +50,14 @@
       <div id="event-list" class="event-grid"></div>
     </section>
 
-    <section id="chat" class="section">
-      <h2>Chat</h2>
-      <p class="section-intro">You're chatting as <strong id="my-name"></strong>
-        <button id="new-name" class="link-btn" type="button">(get a new name)</button>
-      </p>
-
-      <div class="chat-box">
-        <div class="tabs" role="tablist">
-          <button class="tab active" role="tab" aria-selected="true" data-room="group">💬 Group chat</button>
-          <button class="tab" role="tab" aria-selected="false" data-room="leader">🔒 Talk to a leader</button>
-        </div>
-        <p id="room-desc" class="room-desc"></p>
-        <div id="messages" class="messages" aria-live="polite"></div>
-        <form id="chat-form" class="chat-form">
-          <label for="chat-input" class="visually-hidden">Type a message</label>
-          <input id="chat-input" type="text" maxlength="300" placeholder="Type a kind message…" autocomplete="off">
-          <button type="submit" class="btn btn-primary">Send</button>
-        </form>
-        <p id="chat-warning" class="chat-warning" role="alert"></p>
-      </div>
-      <p class="preview-note">🧪 Demo: in the real version, messages would go live to other youth and a program leader.</p>
-
-      <details class="leader-view">
-        <summary>🧪 Demo: see what the program leader sees</summary>
-        <p class="section-intro">Serious messages show up here right away. Small slips stay private unless they keep happening.</p>
-        <ul id="leader-log" class="leader-log"></ul>
-        <button id="reset-demo" class="btn btn-ghost" type="button">Reset demo</button>
-      </details>
-
-      <dialog id="popup" class="popup" aria-labelledby="popup-title">
-        <div id="popup-icon" class="popup-icon"></div>
-        <h3 id="popup-title"></h3>
-        <p id="popup-text"></p>
-        <div class="popup-buttons">
-          <button id="popup-leader" class="btn btn-ghost" type="button" hidden>Talk to a leader</button>
-          <button id="popup-ok" class="btn btn-primary" type="button">Okay</button>
-        </div>
-      </dialog>
-    </section>
-
     <section id="rules" class="section">
       <h2>Staying safe</h2>
       <ul class="rules">
-        <li><span>🙈</span><div><strong>Stay anonymous.</strong> Never share your real name, school, phone number, address, or social media. The chat blocks phone numbers and emails automatically.</div></li>
-        <li><span>💛</span><div><strong>Be kind.</strong> Bad words get hidden with ***. Slip up 3 times in one day and chat pauses for 10 minutes. Bullying, threats, and hate speech are blocked and sent to a leader.</div></li>
-        <li><span>👀</span><div><strong>A leader is always watching.</strong> A trusted adult from the program reads the chats to keep everyone safe.</div></li>
-        <li><span>🚩</span><div><strong>Report anything wrong.</strong> Tap the 🚩 on any message that makes you uncomfortable.</div></li>
+        <li><span>🙈</span><div><strong>Stay anonymous.</strong> Never share your real name, school, phone number, address, or social media. Posts with personal info are blocked automatically.</div></li>
+        <li><span>👀</span><div><strong>Everything is out in the open.</strong> There are no private messages. All conversations stay public and are watched over by trusted leaders.</div></li>
+        <li><span>💛</span><div><strong>Be kind.</strong> Bad words get hidden with ***. Slip up 3 times in one day and posting pauses for 10 minutes. Bullying, threats, and hate speech are blocked and sent to a leader.</div></li>
+        <li><span>⏳</span><div><strong>New here?</strong> Your first 2 posts are checked by a moderator before they go live. After that, post freely.</div></li>
+        <li><span>🚩</span><div><strong>Report anything wrong.</strong> Tap the 🚩 on any post that makes you uncomfortable.</div></li>
         <li><span>🆘</span><div><strong>In danger or need help now?</strong> Call or text <strong>988</strong> (Suicide &amp; Crisis Lifeline), or call <strong>911</strong> in an emergency.</div></li>
       </ul>
     </section>
@@ -93,6 +67,6 @@
     <p>© 2026 Providing Light</p>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="events.js"></script>
 </body>
 </html>

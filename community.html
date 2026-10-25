@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Community · Providing Light</title>
+  <meta name="description" content="Anonymous, moderated discussion boards for youth ages 11–17.">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="demo-banner">🧪 <strong>Demo version</strong>, built for a hackathon. Posts are pretend and only stay on this device.</div>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <svg class="lantern" viewBox="0 0 32 40" aria-hidden="true">
+        <circle class="frame-line" cx="16" cy="4" r="2.6"/>
+        <path class="frame" d="M8.5 11.5 L16 6.5 L23.5 11.5 Z"/>
+        <rect class="frame" x="7.5" y="11" width="17" height="2.6" rx="1.2"/>
+        <path class="glass" d="M10 13.6 H22 L23.4 29.4 H8.6 Z"/>
+        <path class="pane" d="M13.5 13.6 L13 29.4 M18.5 13.6 L19 29.4"/>
+        <path class="flame" d="M16 17.5 C18.6 20.5 18.8 23 18.2 24.6 C17.7 26 16.9 26.6 16 26.6 C15.1 26.6 14.3 26 13.8 24.6 C13.2 23 13.4 20.5 16 17.5 Z"/>
+        <rect class="frame" x="6.5" y="29.2" width="19" height="3" rx="1.3"/>
+        <rect class="frame" x="10" y="32.2" width="12" height="2.4" rx="1"/>
+      </svg>
+      Providing Light
+    </a>
+    <nav>
+      <a href="index.html#events">Events</a>
+      <a href="community.html" aria-current="page">Community</a>
+      <a href="index.html#rules">Safety</a>
+    </nav>
+  </header>
+
+  <main class="section forum">
+    <div id="forum-toolbar" class="forum-toolbar"></div>
+    <p id="timeout-banner" class="timeout-banner" role="status"></p>
+    <div id="forum"></div>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Providing Light</p>
+  </footer>
+
+  <dialog id="popup" class="popup" aria-labelledby="popup-title">
+    <form method="dialog">
+      <div id="popup-icon" class="popup-icon"></div>
+      <h3 id="popup-title"></h3>
+      <p id="popup-text"></p>
+      <div class="popup-buttons">
+        <button class="btn btn-primary" value="ok">Okay</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="note-dialog" class="popup" aria-labelledby="note-title">
+    <form method="dialog">
+      <h3 id="note-title"></h3>
+      <p>Leave a short note explaining why. Everyone will see it.</p>
+      <label for="note-input" class="visually-hidden">Note</label>
+      <textarea id="note-input" maxlength="200" rows="3" placeholder="e.g. Off topic, please start a new thread"></textarea>
+      <div class="popup-buttons">
+        <button class="btn btn-ghost" value="cancel">Cancel</button>
+        <button class="btn btn-primary" value="ok">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="events.js"></script>
+  <script src="forum.js"></script>
+</body>
+</html>
