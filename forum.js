@@ -411,7 +411,8 @@ document.getElementById("name-ok").addEventListener("click", e => {
 // ---------- Joining your program ----------
 let joinMessage = null; // { ok, text } shown on the join page after a try
 
-function tryJoin(raw) {
+// groupId (optional): only accept the code for that one program day.
+function tryJoin(raw, groupId = null) {
   const acc = myAccount();
   const now = Date.now();
   acc.codeTries = (acc.codeTries || []).filter(t => now - t < CODE_TRY_WINDOW);
@@ -421,7 +422,7 @@ function tryJoin(raw) {
   }
 
   const code = normalizeCode(raw);
-  const group = state.groups.find(g => normalizeCode(g.code) === code);
+  const group = state.groups.find(g => normalizeCode(g.code) === code && (!groupId || g.id === groupId));
 
   if (!group) {
     acc.codeTries.push(now);
@@ -431,7 +432,9 @@ function tryJoin(raw) {
       ok: false,
       text: acc.codeTries.length >= MAX_CODE_TRIES
         ? "Too many tries. Please wait a few minutes and try again."
-        : "That code didn't work. Double-check it with your program leader.",
+        : groupId
+          ? `That code didn't work for the ${findGroup(groupId).name}. Double-check it with your program leader.`
+          : "That code didn't work. Double-check it with your program leader.",
     };
   }
 
@@ -924,11 +927,44 @@ function chatView() {
     </div>`;
 }
 
+// First visit: kids pick their program day and enter its code before seeing the community.
+let gateDay = null;
+const needsProgram = () => !isMod() && !state.groups.some(g => g.members.includes(me().id));
+
+function gateView() {
+  const msg = joinMessage;
+  joinMessage = null;
+  const picked = gateDay && findGroup(gateDay);
+  return `
+    <div class="gate card">
+      <div class="gate-icon">👋</div>
+      <h1 class="page-title">Welcome to the community!</h1>
+      <p class="section-intro">First, let's get you into your program. Which program day are you in?</p>
+      <div class="day-grid" role="group" aria-label="Program day">
+        ${state.groups.map(g => `
+          <button type="button" class="day-choice ${gateDay === g.id ? "on" : ""}" data-action="pick-day" data-group="${g.id}" aria-pressed="${gateDay === g.id}">
+            <span>${g.icon}</span>${esc(g.day.replace(/s$/, ""))}
+          </button>`).join("")}
+      </div>
+      ${picked ? `
+        <form class="join-form" data-form="gate">
+          <label for="gate-code">Enter the code for the ${esc(picked.name)}</label>
+          <div class="join-row">
+            <input id="gate-code" name="code" class="code-input" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC-1234" required>
+            <button class="btn btn-primary">Join</button>
+          </div>
+          ${msg ? `<p class="join-msg ${msg.ok ? "ok" : "error"}" role="alert">${esc(msg.text)}</p>` : ""}
+        </form>` : ""}
+      <p class="gate-help">You'll get your code at your first meeting. Stuck? <a href="#/chat">Ask in the help chat</a>.</p>
+    </div>`;
+}
+
 function render() {
   const [, view, id] = (location.hash.slice(1) || "/").split("/");
   document.getElementById("forum-toolbar").innerHTML = toolbarView();
   const forum = document.getElementById("forum");
-  if (view === "board") forum.innerHTML = boardView(id);
+  if (needsProgram() && view !== "chat") forum.innerHTML = gateView();
+  else if (view === "board") forum.innerHTML = boardView(id);
   else if (view === "thread") forum.innerHTML = threadView(id);
   else if (view === "mod") forum.innerHTML = modView();
   else if (view === "join") forum.innerHTML = joinView();
@@ -936,6 +972,8 @@ function render() {
   else forum.innerHTML = homeView();
   document.getElementById("settings-extra").innerHTML = avatarPickerView();
   updateTimeout();
+  const gateInput = document.getElementById("gate-code");
+  if (gateInput && !gateInput.value) gateInput.focus();
   const chatBox = document.getElementById("chat-messages");
   if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -1012,6 +1050,9 @@ document.addEventListener("click", async e => {
     case "avatar":
       me().avatar = el.dataset.avatar;
       break;
+    case "pick-day":
+      gateDay = el.dataset.group;
+      break;
     case "hide-chat":
       msg.hidden = msg.hidden === null ? "" : null;
       break;
@@ -1049,6 +1090,21 @@ document.addEventListener("submit", e => {
   if (!form) return;
   e.preventDefault();
   const data = new FormData(form);
+
+  if (form.dataset.form === "gate") {
+    const result = tryJoin(data.get("code"), gateDay);
+    save();
+    if (result.ok) {
+      const g = findGroup(gateDay);
+      gateDay = null;
+      render();
+      showPopup({ icon: g.icon, title: `Welcome to the ${g.name}!`, text: "You're all set. Explore the boards, say salam, and have fun! 🎉" });
+    } else {
+      joinMessage = result;
+      render();
+    }
+    return;
+  }
 
   if (form.dataset.form === "join") {
     joinMessage = tryJoin(data.get("code"));

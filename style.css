@@ -841,6 +841,31 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
 .program-card h3 { margin: 0; font-size: 1.15rem; }
 .program-card p { margin: 4px 0 0; }
 
+/* First-visit welcome (pick your program day) */
+.gate { max-width: 600px; margin: 0 auto; padding: 32px 28px; text-align: center; }
+.gate-icon { font-size: 2.6rem; }
+.gate .join-form { margin: 20px 0 0; text-align: left; }
+.day-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.day-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.day-choice span { font-size: 1.6rem; }
+.day-choice:hover { border-color: var(--sun); }
+.day-choice.on { border-color: var(--primary); background: var(--soft); }
+.gate-help { margin: 20px 0 0; font-size: 0.9rem; color: var(--muted); }
+.gate-help a { color: var(--primary); font-weight: 700; }
+
 /* Help chat */
 .chat-box {
   background: var(--card);
@@ -1017,6 +1042,8 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
   .section { padding: 36px 16px; }
   .board-grid { grid-template-columns: 1fr; }
   .program-grid { grid-template-columns: 1fr; }
+  .day-grid { grid-template-columns: repeat(2, 1fr); }
+  .gate { padding: 24px 18px; }
   .chat-msg { max-width: 90%; }
   .chat-messages { height: 360px; }
   .about { grid-template-columns: 1fr; gap: 0; }
