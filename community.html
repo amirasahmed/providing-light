@@ -85,6 +85,19 @@
     </form>
   </dialog>
 
+  <dialog id="remove-dialog" class="popup" aria-labelledby="remove-title">
+    <form method="dialog">
+      <div class="popup-icon">🚪</div>
+      <h3 id="remove-title"></h3>
+      <p>They'll lose access to the program's board and chat. They know the current code, so changing it stops them from coming back.</p>
+      <div class="popup-buttons">
+        <button class="btn btn-primary" id="remove-and-code">Remove and change code</button>
+        <button class="btn btn-ghost" id="remove-only">Just remove</button>
+      </div>
+      <button type="button" class="link-btn remove-cancel" id="remove-cancel">Cancel</button>
+    </form>
+  </dialog>
+
   <script src="settings.js"></script>
   <script src="events.js"></script>
   <script src="notices.js"></script>

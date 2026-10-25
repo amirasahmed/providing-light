@@ -314,6 +314,29 @@ function showPopup(p) {
   document.getElementById("popup").showModal();
 }
 
+// Gives a program a new code and tells everyone it changed (without showing the new code).
+function changeCode(g, before = "") {
+  g.code = makeCode(g);
+  state.notices.unshift({ id: newId(), kind: "code", groupId: g.id, time: Date.now(),
+    text: `The ${g.name} code was changed by a moderator. Already in the program? You don't need to do anything. New to it? Ask your program leader for the new code.` });
+  showPopup({ icon: "🔑", title: "Code changed", text: `${before}The new ${g.name} code is ${g.code}. Everyone on the site has been notified that it changed. Current members stay in.` });
+}
+
+// Asks a moderator whether to also change the code when removing someone.
+// Gives back "and-code", "only", or null if they cancel.
+function askRemoveMember(name, g) {
+  const dialog = document.getElementById("remove-dialog");
+  document.getElementById("remove-title").textContent = `Remove ${name} from the ${g.name}?`;
+  dialog.showModal();
+  return new Promise(resolve => {
+    const finish = value => { dialog.close(); resolve(value); };
+    document.getElementById("remove-and-code").onclick = e => { e.preventDefault(); finish("and-code"); };
+    document.getElementById("remove-only").onclick = e => { e.preventDefault(); finish("only"); };
+    document.getElementById("remove-cancel").onclick = e => { e.preventDefault(); finish(null); };
+    dialog.oncancel = () => resolve(null); // pressing Escape
+  });
+}
+
 // Asks a moderator for a short reason. Gives back the note, or null if they cancel.
 function askNote(title) {
   const dialog = document.getElementById("note-dialog");
@@ -1200,12 +1223,7 @@ document.addEventListener("click", async e => {
       break;
     case "new-code": {
       if (!isMod()) return; // only moderators can change codes
-      const g = findGroup(el.dataset.group);
-      g.code = makeCode(g);
-      // Tell everyone the code changed, without showing the new code.
-      state.notices.unshift({ id: newId(), kind: "code", groupId: g.id, time: Date.now(),
-        text: `The ${g.name} code was changed by a moderator. Already in the program? You don't need to do anything. New to it? Ask your program leader for the new code.` });
-      showPopup({ icon: "🔑", title: "Code changed", text: `The new ${g.name} code is ${g.code}. Everyone on the site has been notified that it changed. Current members stay in.` });
+      changeCode(findGroup(el.dataset.group));
       break;
     }
     case "announce-template":
@@ -1225,7 +1243,11 @@ document.addEventListener("click", async e => {
     case "remove-member": {
       if (!isMod()) return;
       const g = findGroup(el.dataset.group);
+      const choice = await askRemoveMember(nameOf(el.dataset.member), g);
+      if (!choice) return;
       g.members = g.members.filter(id => id !== el.dataset.member);
+      // They still know the old code, so changing it keeps them from just joining again.
+      if (choice === "and-code") changeCode(g, `${nameOf(el.dataset.member)} was removed. `);
       break;
     }
     case "change-name":
