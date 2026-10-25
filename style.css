@@ -1,7 +1,7 @@
 :root {
   /* Colors: navy, gold, and cream */
-  --bg: #f2e9d6;
-  --card: #f9f2e3;
+  --bg: #ebdfc6;
+  --card: #f4ead6;
   --text: #1b2a44;
   --muted: #5f6b7f;
   --sun: #c9a227;
@@ -9,14 +9,14 @@
   --primary: #1f3a60;
   --primary-dark: #152a47;
   --on-primary: #faf6ec;
-  --soft: #eadfc4;
-  --border: #e0d3b6;
+  --soft: #e0d2b2;
+  --border: #d6c6a3;
   --danger: #b03a2e;
   --radius: 16px;
-  --header-bg: rgba(242, 233, 214, 0.92);
-  --subtle: #efe5cf;
-  --bubble: #ebe1ca;
-  --leader-bg: #f3e4b8;
+  --header-bg: rgba(235, 223, 198, 0.92);
+  --subtle: #e7dabd;
+  --bubble: #e2d4b6;
+  --leader-bg: #efdcaa;
   --leader-border: #e3cf8a;
   --banner-border: #e3cf8a;
   --logo-frame: #1f3a60;
@@ -57,28 +57,78 @@
 /* Themes, picked with the gear button. Classic (above) follows the device's light/dark setting. */
 :root[data-theme="rose"] {
   color-scheme: light;
-  --bg: #f5dfe3;
-  --card: #fbedf0;
+  --bg: #f0cfd6;
+  --card: #f8e2e7;
   --text: #4a2430;
-  --muted: #8b6670;
-  --sun: #e7a07e;
-  --sun-glow: rgba(231, 160, 126, 0.3);
+  --muted: #825a66;
+  --sun: #e09a76;
+  --sun-glow: rgba(224, 154, 118, 0.3);
   --primary: #b4466a;
   --primary-dark: #963655;
   --on-primary: #fff8f9;
-  --soft: #f0cfd7;
-  --border: #e9c6ce;
-  --danger: #b03a2e;
-  --header-bg: rgba(245, 223, 227, 0.92);
-  --subtle: #f2dbe0;
-  --bubble: #eed3d9;
-  --leader-bg: #f7dccb;
-  --leader-border: #eec2a8;
-  --banner-border: #eec2cf;
+  --soft: #e9bcc7;
+  --border: #e2b3be;
+  --danger: #a8322a;
+  --header-bg: rgba(240, 207, 214, 0.92);
+  --subtle: #edcad2;
+  --bubble: #eac3cc;
+  --leader-bg: #f5d5c2;
+  --leader-border: #e4b294;
+  --banner-border: #e2b3be;
   --logo-frame: #8c3553;
   --logo-flame: #fff8f2;
-  --verified: #2f7a4f;
+  --verified: #2a6e46;
   --weekly-label: #ffd9c7;
+}
+:root[data-theme="mulberry"] {
+  color-scheme: dark;
+  --bg: #2a1430;
+  --card: #3a1f42;
+  --text: #f6e9f8;
+  --muted: #c4a9cb;
+  --sun: #e9b45a;
+  --sun-glow: rgba(233, 180, 90, 0.22);
+  --primary: #e594cc;
+  --primary-dark: #eeaedb;
+  --on-primary: #2a1430;
+  --soft: #4a2a53;
+  --border: #53305d;
+  --danger: #ff8a7a;
+  --header-bg: rgba(42, 20, 48, 0.92);
+  --subtle: #321a3a;
+  --bubble: #44264d;
+  --leader-bg: #4a3424;
+  --leader-border: #6e5230;
+  --banner-border: #5a3466;
+  --logo-frame: #f6e9f8;
+  --logo-flame: #fffdf5;
+  --verified: #7fd1a0;
+  --weekly-label: rgba(42, 20, 48, 0.7);
+}
+:root[data-theme="nature"] {
+  color-scheme: light;
+  --bg: #d5dcc4;
+  --card: #e3e8d6;
+  --text: #1f2a1a;
+  --muted: #525d49;
+  --sun: #c58b2a;
+  --sun-glow: rgba(197, 139, 42, 0.3);
+  --primary: #3e5a2b;
+  --primary-dark: #2f4720;
+  --on-primary: #f3f6ec;
+  --soft: #c6cfb0;
+  --border: #bcc6a6;
+  --danger: #a8322a;
+  --header-bg: rgba(213, 220, 196, 0.92);
+  --subtle: #ccd4ba;
+  --bubble: #c9d1b5;
+  --leader-bg: #e8dcb5;
+  --leader-border: #c9b37a;
+  --banner-border: #b9c4a2;
+  --logo-frame: #2b3a1f;
+  --logo-flame: #fff8e6;
+  --verified: #2a6e46;
+  --weekly-label: #f0d28a;
 }
 :root[data-theme="night"] {
   color-scheme: dark;
@@ -105,55 +155,30 @@
   --verified: #7fd1a0;
   --weekly-label: rgba(10, 18, 48, 0.7);
 }
-:root[data-theme="mulberry"] {
+:root[data-theme="ocean"] {
   color-scheme: light;
-  --bg: #ece0f2;
-  --card: #f5edf9;
-  --text: #3a1d48;
-  --muted: #77607f;
-  --sun: #d9a441;
-  --sun-glow: rgba(217, 164, 65, 0.28);
-  --primary: #7a3e98;
-  --primary-dark: #622f7d;
-  --on-primary: #fdf8ff;
-  --soft: #e2cfec;
-  --border: #dac6e5;
-  --danger: #b03a2e;
-  --header-bg: rgba(236, 224, 242, 0.92);
-  --subtle: #e8dbef;
-  --bubble: #e3d4ea;
-  --leader-bg: #f1e4c4;
-  --leader-border: #e2cb8f;
-  --banner-border: #dcc6ea;
-  --logo-frame: #5a2c73;
+  --bg: #cfe6e3;
+  --card: #e2f1ef;
+  --text: #12343a;
+  --muted: #4a666a;
+  --sun: #e0a84a;
+  --sun-glow: rgba(224, 168, 74, 0.28);
+  --primary: #1f6f78;
+  --primary-dark: #175a62;
+  --on-primary: #f2fbfa;
+  --soft: #bcdcd8;
+  --border: #b2d3cf;
+  --danger: #a8322a;
+  --header-bg: rgba(207, 230, 227, 0.92);
+  --subtle: #c7e2de;
+  --bubble: #c0ddd9;
+  --leader-bg: #f0e2c0;
+  --leader-border: #d9bf80;
+  --banner-border: #a9cfca;
+  --logo-frame: #12434a;
   --logo-flame: #fff8e6;
-  --verified: #2f7a4f;
-  --weekly-label: #f2d38a;
-}
-:root[data-theme="nature"] {
-  color-scheme: light;
-  --bg: #e3ecdc;
-  --card: #eef4e9;
-  --text: #1e3727;
-  --muted: #5d7364;
-  --sun: #d4a843;
-  --sun-glow: rgba(212, 168, 67, 0.28);
-  --primary: #3d7a4e;
-  --primary-dark: #2e6340;
-  --on-primary: #f7fbf4;
-  --soft: #d3e3cb;
-  --border: #c9dbc0;
-  --danger: #b03a2e;
-  --header-bg: rgba(227, 236, 220, 0.92);
-  --subtle: #dfe9d8;
-  --bubble: #d9e5d1;
-  --leader-bg: #efe5c4;
-  --leader-border: #dfcb8c;
-  --banner-border: #c9dcc0;
-  --logo-frame: #2e5a3a;
-  --logo-flame: #fff8e6;
-  --verified: #2f7a4f;
-  --weekly-label: #f0d991;
+  --verified: #2a6e46;
+  --weekly-label: #f5d58f;
 }
 
 * { box-sizing: border-box; }

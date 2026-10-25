@@ -1,11 +1,12 @@
 // The gear button in the corner and the settings panel it opens.
 // The chosen theme is saved in this browser. (A tiny script in each page's <head> applies it before the page shows.)
 const themes = [
-  { id: "classic", name: "Classic", colors: ["#f2e9d6", "#1f3a60"] },
-  { id: "rose", name: "Rose", colors: ["#f5dfe3", "#b4466a"] },
+  { id: "classic", name: "Classic", colors: ["#ebdfc6", "#1f3a60"] },
+  { id: "ocean", name: "Ocean", colors: ["#cfe6e3", "#1f6f78"] },
+  { id: "rose", name: "Rose", colors: ["#f0cfd6", "#b4466a"] },
+  { id: "mulberry", name: "Mulberry", colors: ["#2a1430", "#e594cc"] },
+  { id: "nature", name: "Nature", colors: ["#d5dcc4", "#3e5a2b"] },
   { id: "night", name: "Night", colors: ["#0a1230", "#7ea6ff"] },
-  { id: "mulberry", name: "Mulberry", colors: ["#ece0f2", "#7a3e98"] },
-  { id: "nature", name: "Nature", colors: ["#e3ecdc", "#3d7a4e"] },
 ];
 
 function currentTheme() {
