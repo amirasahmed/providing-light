@@ -834,6 +834,34 @@ function modView() {
     <h1 class="page-title">🛡️ Moderator panel</h1>
     <p class="section-intro">Serious safety reports show up here right away, along with program codes and members.</p>
 
+    <h2 class="replies-title">📣 Send an announcement</h2>
+    <form class="card composer" data-form="announce">
+      <label>Send to
+        <select name="group">
+          <option value="">All programs</option>
+          ${state.groups.map(g => `<option value="${g.id}">${g.icon} ${esc(g.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>Message
+        <textarea id="announce-text" name="text" rows="3" maxlength="300" required placeholder="e.g. There's no program this week. See you next week! 💛"></textarea>
+      </label>
+      <div class="actions">
+        <button type="button" class="chip-btn" data-action="announce-template">🚫 No program this week</button>
+        <button type="button" class="chip-btn" data-action="announce-template" data-text="Reminder: our program starts at a different time this week. Check with your program leader for details.">⏰ Time change</button>
+      </div>
+      <button class="btn btn-primary">Send announcement</button>
+      <p class="approval-note">Kids in that program see a banner on the home and Community pages, and it's posted in their program chat.</p>
+    </form>
+    ${state.notices.some(n => n.kind === "announcement") ? `
+      <ul class="leader-log">
+        ${state.notices.filter(n => n.kind === "announcement").map(n => `
+          <li>
+            <strong>${esc(noticeLabel(state, n))}</strong>
+            <span>Sent ${timeAgo(n.time)}</span>
+            <p><button class="chip-btn" data-action="remove-notice" data-notice="${n.id}">🗑️ Remove</button></p>
+          </li>`).join("")}
+      </ul>` : ""}
+
     <h2 class="replies-title">Safety reports (${state.log.length})</h2>
     <ul class="leader-log">${logItems || `<li class="empty">Nothing yet. Serious posts and repeated slips will show up here.</li>`}</ul>
 
@@ -883,6 +911,7 @@ function joinView() {
     <p class="section-intro">${isMod()
       ? "Hand out each program's code at its first meeting. If a code gets out, make a new one: the old code stops working, and current members stay in."
       : "Each program day has its own private board. Type the code you got at your first meeting to unlock yours."}</p>
+    ${isMod() ? `<p><a class="btn btn-primary" href="#/mod">📣 Send an announcement</a></p>` : ""}
 
     ${isMod() ? "" : `
       <form class="card join-form" data-form="join">
@@ -967,11 +996,10 @@ function unreadBadge(g) {
 function noticesView() {
   if (isMod()) return "";
   const acc = me();
-  return state.notices
-    .filter(n => n.time > (acc.created || 0) && !(acc.seenNotices || []).includes(n.id))
+  return visibleNotices(state, acc)
     .map(n => `
       <div class="notice-banner" role="status">
-        <span>🔑 ${esc(n.text)}</span>
+        <span>${esc(noticeLabel(state, n))}</span>
         <button class="btn btn-primary" data-action="dismiss-notice" data-notice="${n.id}">Got it</button>
       </div>`).join("");
 }
@@ -1122,9 +1150,19 @@ document.addEventListener("click", async e => {
       const g = findGroup(el.dataset.group);
       g.code = makeCode(g);
       // Tell everyone the code changed, without showing the new code.
-      state.notices.unshift({ id: newId(), groupId: g.id, time: Date.now(),
+      state.notices.unshift({ id: newId(), kind: "code", groupId: g.id, time: Date.now(),
         text: `The ${g.name} code was changed by a moderator. Already in the program? You don't need to do anything. New to it? Ask your program leader for the new code.` });
       showPopup({ icon: "🔑", title: "Code changed", text: `The new ${g.name} code is ${g.code}. Everyone on the site has been notified that it changed. Current members stay in.` });
+      break;
+    }
+    case "announce-template":
+      document.getElementById("announce-text").value = el.dataset.text || "There's no program this week. See you next week! 💛";
+      return;
+    case "remove-notice": {
+      if (!isMod()) return;
+      state.notices = state.notices.filter(n => n.id !== el.dataset.notice);
+      // Take it out of the program chats too.
+      for (const g of state.groups) g.chat = g.chat.filter(m => m.noticeId !== el.dataset.notice);
       break;
     }
     case "dismiss-notice":
@@ -1155,6 +1193,24 @@ document.addEventListener("submit", e => {
   if (!form) return;
   e.preventDefault();
   const data = new FormData(form);
+
+  if (form.dataset.form === "announce") {
+    if (!isMod()) return;
+    const text = data.get("text").trim();
+    if (!text) return;
+    const groupId = data.get("group") || null;
+    const notice = { id: newId(), kind: "announcement", groupId, text, time: Date.now() };
+    state.notices.unshift(notice);
+    // Also post it in the program chat (or every program chat), so it stays there after the banner is dismissed.
+    for (const g of state.groups.filter(x => !groupId || x.id === groupId)) {
+      g.chat.push({ id: newId(), noticeId: notice.id, authorId: MOD_ID, text: "📣 " + text, time: Date.now(), hidden: null });
+    }
+    save();
+    render();
+    const where = groupId ? `everyone in the ${findGroup(groupId).name}` : "everyone in every program";
+    showPopup({ icon: "📣", title: "Announcement sent", text: `It's now showing for ${where}.` });
+    return;
+  }
 
   if (form.dataset.form === "mod-signin") {
     const result = tryModSignIn(data.get("code"));
