@@ -35,11 +35,12 @@ function randomName(accounts = state.accounts) {
 // ---------- Accounts ----------
 // Every account has a permanent hidden ID. The display name is just one setting on it.
 // Posts, warnings, and timeouts are all saved under the ID, so changing your name changes nothing else.
-function makeAccount(id, name, role = "kid", history = []) {
-  return { id, name, role, history, lastNameChange: null, approved: role === "kid" ? NEW_USER_POSTS : 0, slips: [], timeoutUntil: 0 };
+function makeAccount(id, name, role = "kid", history = [], avatar = null) {
+  avatar = avatar || avatarKeys[Math.floor(Math.random() * avatarKeys.length)];
+  return { id, name, role, history, avatar, lastNameChange: null, approved: role === "kid" ? NEW_USER_POSTS : 0, slips: [], timeoutUntil: 0 };
 }
 
-const accountOf = id => state.accounts[id] || { id, name: "Former member", role: "kid", history: [] };
+const accountOf = id => state.accounts[id] || { id, name: "Former member", role: "kid", history: [], avatar: "lantern" };
 const nameOf = id => accountOf(id).name;
 
 let viewMode = localStorage.getItem("pl-view") || "kid";
@@ -82,9 +83,9 @@ function makeReply(o) {
 // Example accounts and posts so the demo doesn't start empty.
 function seedState() {
   const accounts = {};
-  const add = (id, name, role, history) => (accounts[id] = makeAccount(id, name, role, history), id);
-  const leader = add(MOD_ID, "Program Leader", "mod");
-  const teacher = add("user_00002", "Ustadha Maryam", "teacher");
+  const add = (id, name, role, history, avatar) => (accounts[id] = makeAccount(id, name, role, history, avatar), id);
+  const leader = add(MOD_ID, "Program Leader", "mod", [], "lantern");
+  const teacher = add("user_00002", "Ustadha Maryam", "teacher", [], "quran");
   const [river, crescent, willow, meadow, cedar, lantern, harbor, olive, comet, owl, star, dove] = [
     ["user_31852", "Calm River"], ["user_47019", "Bright Crescent"], ["user_25563", "Gentle Willow"],
     ["user_60284", "Happy Meadow"], ["user_19937", "Bold Cedar"], ["user_48213", "Golden Lantern", [{ name: "Brave Falcon", changed: hoursAgo(24 * 12) }]],
@@ -152,6 +153,7 @@ function loadState() {
   if (!s || s.version !== 2) s = seedState();
   ensureEventThreads(s);
   ensureMyAccount(s);
+  for (const acc of Object.values(s.accounts)) acc.avatar ||= avatarKeys[Math.floor(Math.random() * avatarKeys.length)];
   return s;
 }
 
@@ -348,10 +350,27 @@ function modInfo(acc) {
   return ` <span class="mod-id" title="Only moderators see this">${esc(acc.id)}${past}</span>`;
 }
 
+function avatar(acc, size = "") {
+  return `<span class="avatar ${size}" title="${esc((avatars[acc.avatar] || avatars.lantern).label)}">${avatarSvg(acc.avatar)}</span>`;
+}
+
 function author(id) {
   const acc = accountOf(id);
   const badge = roleBadges[acc.role] ? ` <span class="role-badge role-${acc.role}">${roleBadges[acc.role]}</span>` : "";
-  return `<strong>${esc(acc.name)}</strong>${badge}${modInfo(acc)}`;
+  return `${avatar(acc)}<strong>${esc(acc.name)}</strong>${badge}${modInfo(acc)}`;
+}
+
+// The "Profile icon" part of the settings panel (from settings.js).
+function avatarPickerView() {
+  const acc = me();
+  return `
+    <p class="settings-label">Profile icon${isMod() ? " (moderator)" : ""}</p>
+    <div class="avatar-grid">
+      ${avatarKeys.map(k => `
+        <button type="button" class="avatar-choice ${acc.avatar === k ? "on" : ""}" data-action="avatar" data-avatar="${k}" title="${avatars[k].label}" aria-label="${avatars[k].label}" aria-pressed="${acc.avatar === k}">
+          ${avatarSvg(k)}
+        </button>`).join("")}
+    </div>`;
 }
 
 function tagChip(tag) {
@@ -377,7 +396,7 @@ function toolbarView() {
     <div class="whoami">
       ${isMod()
         ? `Posting as ${author(MOD_ID)}`
-        : `Posting as <strong>${esc(me().name)}</strong> <button class="link-btn" data-action="change-name">Change name</button>`}
+        : `Posting as ${avatar(me())}<strong>${esc(me().name)}</strong> <button class="link-btn" data-action="change-name">Change name</button>`}
     </div>
     <div class="toolbar-right">
       ${isMod() ? `<a class="mod-link" href="#/mod">🛡️ Moderator panel${pending ? ` <span class="count">${pending}</span>` : ""}</a>` : ""}
@@ -661,6 +680,7 @@ function render() {
   else if (view === "thread") forum.innerHTML = threadView(id);
   else if (view === "mod") forum.innerHTML = modView();
   else forum.innerHTML = homeView();
+  document.getElementById("settings-extra").innerHTML = avatarPickerView();
   updateTimeout();
 }
 
@@ -731,6 +751,9 @@ document.addEventListener("click", async e => {
       viewMode = el.dataset.view;
       localStorage.setItem("pl-view", viewMode);
       replyingTo = null;
+      break;
+    case "avatar":
+      me().avatar = el.dataset.avatar;
       break;
     case "change-name":
       openNameDialog();
