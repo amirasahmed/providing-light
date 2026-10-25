@@ -252,6 +252,7 @@ function loadState() {
   s.allChat ||= seedAllChat();
   // Saves from when new members' posts needed approval: publish anything still waiting.
   for (const t of s.threads) {
+    t.body = t.body.replace("\n• Your first 2 posts are checked by a moderator.", "");
     delete t.status;
     for (const r of t.replies) delete r.status;
   }
@@ -1349,6 +1350,15 @@ document.addEventListener("submit", e => {
     render();
     afterPost(result.slipped);
   }
+});
+
+// If the site is open in another tab and something changes there, load it here too,
+// so one tab never saves over what you did in the other.
+window.addEventListener("storage", e => {
+  if (e.key !== "pl-forum" && e.key !== "pl-view" && e.key !== "pl-user-id") return;
+  viewMode = store.get("pl-view") || "kid";
+  state = loadState();
+  render();
 });
 
 window.addEventListener("hashchange", () => {
