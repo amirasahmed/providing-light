@@ -10,6 +10,7 @@ const SPAM_PAUSE = 60 * 1000;                 // ...pauses posting for 1 minute
 const NAME_CHANGE_WAIT = 30 * 24 * 60 * 60 * 1000; // 30 days between name changes
 
 const MOD_ID = "user_00001";
+const MOD_CODE = "YAY-ISLAM"; // moderators sign in with this code
 
 const boards = [
   { id: "announcements", name: "Announcements", icon: "📣", desc: "News from the program team. Only moderators can post here.", modOnly: true },
@@ -410,6 +411,40 @@ document.getElementById("name-ok").addEventListener("click", e => {
 
 // ---------- Joining your program ----------
 let joinMessage = null; // { ok, text } shown on the join page after a try
+let modMessage = null;  // same, for the moderator sign-in box
+
+// Moderators sign in with the moderator code. Wrong tries count toward the same limit as program codes.
+function tryModSignIn(raw) {
+  const acc = myAccount();
+  const now = Date.now();
+  acc.codeTries = (acc.codeTries || []).filter(t => now - t < CODE_TRY_WINDOW);
+  if (acc.codeTries.length >= MAX_CODE_TRIES) {
+    return { ok: false, text: "Too many tries. Please wait a few minutes and try again." };
+  }
+  if (normalizeCode(raw) === normalizeCode(MOD_CODE)) {
+    acc.codeTries = [];
+    viewMode = "mod";
+    localStorage.setItem("pl-view", viewMode);
+    return { ok: true };
+  }
+  acc.codeTries.push(now);
+  if (acc.codeTries.length === MAX_CODE_TRIES) reportToLeader("codes", `${MAX_CODE_TRIES} wrong codes in a row (including moderator sign-in).`, acc.id);
+  return { ok: false, text: acc.codeTries.length >= MAX_CODE_TRIES ? "Too many tries. Please wait a few minutes and try again." : "That moderator code didn't work." };
+}
+
+function modSignInForm(id) {
+  const msg = modMessage;
+  modMessage = null;
+  return `
+    <form class="join-form" data-form="mod-signin">
+      <label for="${id}">Enter the moderator code</label>
+      <div class="join-row">
+        <input id="${id}" name="code" class="code-input" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC-12345" required>
+        <button class="btn btn-primary">Sign in</button>
+      </div>
+      ${msg ? `<p class="join-msg error" role="alert">${esc(msg.text)}</p>` : ""}
+    </form>`;
+}
 
 // groupId (optional): only accept the code for that one program day.
 function tryJoin(raw, groupId = null) {
@@ -540,11 +575,9 @@ function toolbarView() {
     </div>
     <div class="toolbar-right">
       ${isMod() ? `<a class="mod-link" href="#/mod">🛡️ Moderator panel${pending ? ` <span class="count">${pending}</span>` : ""}</a>` : ""}
-      <div class="view-toggle" role="group" aria-label="Demo view">
-        <span class="view-label">🧪 Demo view:</span>
-        <button data-action="view" data-view="kid" class="${isMod() ? "" : "on"}">Kid</button>
-        <button data-action="view" data-view="mod" class="${isMod() ? "on" : ""}">Moderator</button>
-      </div>
+      ${isMod()
+        ? `<button class="chip-btn" data-action="mod-signout">Sign out of moderator</button>`
+        : `<a class="mod-link" href="#/join">🛡️ Moderator sign-in</a>`}
     </div>`;
 }
 
@@ -777,7 +810,7 @@ const logLabels = {
 };
 
 function modView() {
-  if (!isMod()) return `<a class="back" href="#/">← All boards</a><div class="card empty">Switch to the Moderator view to see this page.</div>`;
+  if (!isMod()) return `<a class="back" href="#/">← All boards</a><div class="card empty">This page is for moderators. <a href="#/join">🛡️ Sign in with the moderator code</a>.</div>`;
 
   const pending = [];
   for (const t of state.threads) {
@@ -814,7 +847,7 @@ function modView() {
       const status = left > 0 ? `⏸️ Paused, ${Math.ceil(left / 60000)} min left` : "Active";
       return `
         <li class="card member">
-          <div><strong>${esc(a.name)}</strong> <span class="mod-id">${esc(a.id)}</span>${a.id === myId ? ` <span class="chip-note">(you, in Kid view)</span>` : ""}</div>
+          <div><strong>${esc(a.name)}</strong> <span class="mod-id">${esc(a.id)}</span>${a.id === myId ? ` <span class="chip-note">(you, when signed out)</span>` : ""}</div>
           <div class="meta">
             Past names: ${a.history.length ? a.history.map(h => esc(h.name)).join(", ") : "none"} ·
             Programs: ${state.groups.filter(g => g.members.includes(a.id)).map(g => esc(g.name)).join(", ") || "none"} ·
@@ -831,10 +864,10 @@ function modView() {
     <p class="section-intro">New members' posts wait here for approval. Serious safety reports show up right away.</p>
 
     <h2 class="replies-title">Waiting for approval (${pending.length})</h2>
-    <ul class="pending-list">${pendingItems || `<li class="empty">All caught up! Switch to Kid view and make a post to see it land here.</li>`}</ul>
+    <ul class="pending-list">${pendingItems || `<li class="empty">All caught up! New members' posts will show up here.</li>`}</ul>
 
     <h2 class="replies-title">Safety reports (${state.log.length})</h2>
-    <ul class="leader-log">${logItems || `<li class="empty">Nothing yet. Try posting a bad word or a phone number in Kid view.</li>`}</ul>
+    <ul class="leader-log">${logItems || `<li class="empty">Nothing yet. Serious posts and repeated slips will show up here.</li>`}</ul>
 
     <h2 class="replies-title">Programs</h2>
     <p class="section-intro">Hand out each program's code at its first meeting. If a code gets out, make a new one: the old code stops working, and current members stay in.</p>
@@ -893,7 +926,14 @@ function joinView() {
         ${msg ? `<p class="join-msg ${msg.ok ? "ok" : "error"}" role="alert">${esc(msg.text)}</p>` : ""}
       </form>`}
 
-    <div class="program-grid">${cards}</div>`;
+    <div class="program-grid">${cards}</div>
+
+    ${isMod() ? "" : `
+      <div class="card mod-signin">
+        <h2 class="replies-title">🛡️ Moderator sign-in</h2>
+        <p class="section-intro">Program leaders: sign in to see every program and the Moderator panel.</p>
+        ${modSignInForm("mod-code")}
+      </div>`}`;
 }
 
 function chatView() {
@@ -934,7 +974,7 @@ const needsProgram = () => !isMod() && !state.groups.some(g => g.members.include
 function gateView() {
   const msg = joinMessage;
   joinMessage = null;
-  const picked = gateDay && findGroup(gateDay);
+  const picked = gateDay && gateDay !== "mod" && findGroup(gateDay);
   return `
     <div class="gate card">
       <div class="gate-icon">👋</div>
@@ -955,6 +995,10 @@ function gateView() {
           </div>
           ${msg ? `<p class="join-msg ${msg.ok ? "ok" : "error"}" role="alert">${esc(msg.text)}</p>` : ""}
         </form>` : ""}
+      <div class="mod-option">
+        <button type="button" class="link-btn" data-action="pick-day" data-group="mod">🛡️ I'm a moderator</button>
+      </div>
+      ${gateDay === "mod" ? modSignInForm("gate-code") : ""}
       <p class="gate-help">You'll get your code at your first meeting. Stuck? <a href="#/chat">Ask in the help chat</a>.</p>
     </div>`;
 }
@@ -1042,10 +1086,12 @@ document.addEventListener("click", async e => {
     case "sort":
       sortMode = el.dataset.sort;
       break;
-    case "view":
-      viewMode = el.dataset.view;
+    case "mod-signout":
+      viewMode = "kid";
       localStorage.setItem("pl-view", viewMode);
       replyingTo = null;
+      save();
+      if (location.hash && location.hash !== "#/") { location.hash = "#/"; return; }
       break;
     case "avatar":
       me().avatar = el.dataset.avatar;
@@ -1090,6 +1136,20 @@ document.addEventListener("submit", e => {
   if (!form) return;
   e.preventDefault();
   const data = new FormData(form);
+
+  if (form.dataset.form === "mod-signin") {
+    const result = tryModSignIn(data.get("code"));
+    save();
+    if (result.ok) {
+      gateDay = null;
+      showPopup({ icon: "🛡️", title: "Welcome, moderator!", text: "You now have full access to every program board and the Moderator panel." });
+      if (location.hash && location.hash !== "#/") { location.hash = "#/"; return; }
+    } else {
+      modMessage = result;
+    }
+    render();
+    return;
+  }
 
   if (form.dataset.form === "gate") {
     const result = tryJoin(data.get("code"), gateDay);

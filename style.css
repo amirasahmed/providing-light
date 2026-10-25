@@ -378,9 +378,7 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
   font-size: 0.95rem;
 }
 .toolbar-right { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-.view-toggle { display: flex; align-items: center; gap: 4px; }
-.view-label { color: var(--muted); font-size: 0.85rem; margin-right: 4px; }
-.view-toggle button, .sort-tabs button {
+.sort-tabs button {
   padding: 6px 14px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -391,7 +389,7 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
   font-size: 0.9rem;
   cursor: pointer;
 }
-.view-toggle button.on, .sort-tabs button.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.sort-tabs button.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .mod-link { font-weight: 700; color: var(--primary); text-decoration: none; }
 .count {
   display: inline-block;
@@ -865,6 +863,12 @@ nav a:hover, nav a[aria-current] { color: var(--primary); }
 .day-choice.on { border-color: var(--primary); background: var(--soft); }
 .gate-help { margin: 20px 0 0; font-size: 0.9rem; color: var(--muted); }
 .gate-help a { color: var(--primary); font-weight: 700; }
+
+.mod-option { margin-top: 18px; }
+.mod-option .link-btn { font-weight: 700; }
+.mod-signin { margin-top: 28px; }
+.mod-signin .replies-title { margin-top: 0; }
+.mod-signin .join-form { margin-bottom: 0; }
 
 /* Help chat */
 .chat-box {
